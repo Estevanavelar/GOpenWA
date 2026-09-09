@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The Baileys live path drops contentless protocol traffic (sender-key distributions, message-history notices) instead of delivering it as a bodyless `unknown` `message.received`, matching what the history path already does ([#1568](https://github.com/rmyndharis/OpenWA/issues/1568)). Thanks @berodcdev for the report.
 - The group invite-code read, over REST or the MCP `GroupGetInviteCode` tool, requires the OPERATOR role; the code is a transferable join capability, so a VIEWER key can no longer extract it.
 - A Baileys reconnect loop is observable: `lastError` on the session, a `session.reconnect_loop` webhook every fifth attempt, and reconnect metrics ([#1546](https://github.com/rmyndharis/OpenWA/issues/1546)). Thanks @OdaiAhmed99 for the report.
 - The dashboard session card keeps the phone number, session id and last-active time while a linked session reconnects, instead of the pairing placeholder ([#1546](https://github.com/rmyndharis/OpenWA/issues/1546)). Thanks @OdaiAhmed99 for the report.

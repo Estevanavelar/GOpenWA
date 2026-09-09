@@ -303,6 +303,18 @@ export class BaileysEvents {
         return;
       }
 
+      // --- contentless protocol traffic: don't emit onMessage ---
+      // Baileys' getContentType only matches keys named `conversation` or containing `Message`, and
+      // excludes senderKeyDistributionMessage BY NAME, so a sender-key distribution (Signal traffic
+      // every group participant emits on first write or key rotation), a messageHistoryNotice or any
+      // other suffix-less proto resolves here as contentType `undefined`, never as its own key.
+      // These carry no user content yet reached consumers as bodyless `unknown` message.received
+      // events (#1568). mapHistoryMessage drops exactly this set via its `!contentType` guard, and
+      // emitOwnSendEcho has always skipped undefined the same way, so live inbound must agree.
+      if (!contentType || contentType === 'senderKeyDistributionMessage') {
+        return;
+      }
+
       // --- Normal message: enrich + emit ---
       const incoming = await this.mapMessage(msg, contentType, { skipMediaDownload: opts?.skipMedia });
       if (msg.key.fromMe === true) {
