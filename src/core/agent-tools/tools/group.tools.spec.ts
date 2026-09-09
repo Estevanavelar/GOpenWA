@@ -1,7 +1,9 @@
+import { ForbiddenException } from '@nestjs/common';
 import { invokeTool } from '../tool-invoker';
 import { groupTools } from './group.tools';
 import type { GroupService } from '../../../modules/group/group.service';
 import type { AuthService } from '../../../modules/auth/auth.service';
+import { ApiKeyRole } from '../../../modules/auth/entities/api-key.entity';
 import type { ParticipantOperationResult } from '../../../engine/interfaces/whatsapp-engine.interface';
 
 function makeAuth(): Pick<AuthService, 'validateApiKey' | 'hasPermission'> {
@@ -112,6 +114,24 @@ describe('groupTools execute handlers', () => {
     );
     expect(getGroupInviteCode).toHaveBeenCalledWith('s1', '120363@g.us');
     expect(out).toEqual({ inviteCode: 'abc123', inviteLink: 'https://chat.whatsapp.com/abc123' });
+  });
+
+  it('GroupGetInviteCode requires OPERATOR: a below-role key is refused before the service is called', async () => {
+    // The invite code is a transferable join capability, so this read is gated at OPERATOR even
+    // though the tool stays tier: 'read' (the tier says the call mutates nothing, not who may
+    // extract a credential).
+    const getGroupInviteCode = jest.fn().mockResolvedValue('abc123');
+    const tool = groupTools({ getGroupInviteCode } as unknown as GroupService).find(
+      t => t.name === 'GroupGetInviteCode',
+    )!;
+    expect(tool.requiredRole).toBe(ApiKeyRole.OPERATOR);
+
+    const auth = makeAuth();
+    (auth.hasPermission as jest.Mock).mockReturnValue(false);
+    await expect(
+      invokeTool(tool, { sessionId: 's1', groupId: '120363@g.us' }, 'key', auth as unknown as AuthService),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(getGroupInviteCode).not.toHaveBeenCalled();
   });
 
   it('GroupCreate delegates to createGroup', async () => {

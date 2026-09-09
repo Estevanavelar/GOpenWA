@@ -709,7 +709,7 @@ curl -X GET "$BASE/api/sessions/$SESSION_ID/groups/120363021234567890@g.us" \
 
 #### GET /api/sessions/:sessionId/groups/:groupId/invite-code
 
-Get the group invite code and full invite link.
+Get the group invite code and full invite link (OPERATOR).
 
 ```bash
 curl -X GET "$BASE/api/sessions/$SESSION_ID/groups/120363021234567890@g.us/invite-code" \
