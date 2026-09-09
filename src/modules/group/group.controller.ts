@@ -510,7 +510,10 @@ export class GroupController {
     return { success: true, message: 'Group picture removed' };
   }
 
+  // The invite code is a bearer join capability, not read data: it works outside OpenWA and keeps
+  // working after the key that fetched it is revoked. OPERATOR, like the QR endpoint.
   @Get(':groupId/invite-code')
+  @RequireRole(ApiKeyRole.OPERATOR)
   @ApiOperation({ summary: 'Get group invite code/link' })
   @ApiParam({ name: 'sessionId', description: 'Session ID' })
   @ApiParam({ name: 'groupId', description: 'Group ID' })
