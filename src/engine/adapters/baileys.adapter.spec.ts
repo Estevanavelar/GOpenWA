@@ -2580,6 +2580,95 @@ describe('BaileysAdapter inbound fan-out', () => {
     expect(event.senderId).toBe('628111@c.us'); // canonicalized to the neutral dialect
   });
 
+  it('senderKeyDistributionMessage: emits nothing and stores nothing (protocol noise the history path drops, #1568)', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+    const baileys = jest.requireMock('@whiskeysockets/baileys') as { getContentType: jest.Mock };
+    // Real baileys 7.x getContentType EXCLUDES senderKeyDistributionMessage by name and only matches
+    // keys named `conversation` or containing `Message`, so an SKDM-only message resolves to
+    // undefined, never to 'senderKeyDistributionMessage'. The mock must return the realistic value
+    // or the test pins a code path production cannot reach.
+    baileys.getContentType.mockReturnValue(undefined);
+
+    const onMessage = jest.fn();
+    const adapter = newAdapter();
+    await adapter.initialize({ onMessage });
+    fakeSock.fire('messages.upsert', {
+      type: 'notify',
+      messages: [
+        {
+          key: {
+            remoteJid: '120363@g.us',
+            fromMe: false,
+            id: 'SKDM1',
+            participant: '628222@s.whatsapp.net',
+          },
+          message: {
+            senderKeyDistributionMessage: { axolotlSenderKeyDistributionMessage: 'R1NFMTIx...' },
+          },
+          messageTimestamp: 1700000025,
+        },
+      ],
+    });
+    await new Promise(r => setImmediate(r));
+    // A sender-key distribution is Signal protocol traffic every group participant emits on first
+    // write or key rotation; it carries no user content. The history mapper already returns null
+    // for it, so the live path must not deliver a bodyless `unknown` message.received either.
+    expect(onMessage).not.toHaveBeenCalled();
+    expect(fakeStore.put).not.toHaveBeenCalled();
+  });
+
+  it('learns the lid pair carried on a dropped sender-key distribution before dropping it (#1568)', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+    const baileys = jest.requireMock('@whiskeysockets/baileys') as { getContentType: jest.Mock };
+    // Call order matches message order: the SKDM resolves to undefined (dropped), the following
+    // real message to 'conversation'.
+    baileys.getContentType.mockReturnValueOnce(undefined).mockReturnValueOnce('conversation');
+
+    const onMessage = jest.fn();
+    const adapter = newAdapter();
+    await adapter.initialize({ onMessage });
+    // An SKDM is the first stanza a fresh @lid group sender emits; its key carries the only
+    // lid->phone pair. recordKeyLidMappings runs BEFORE the contentless drop, so the pair must be
+    // learned even though the message itself never reaches consumers.
+    fakeSock.fire('messages.upsert', {
+      type: 'notify',
+      messages: [
+        {
+          key: {
+            remoteJid: '120363@g.us',
+            fromMe: false,
+            id: 'SKDM_LID',
+            participant: '111@lid',
+            participantAlt: '628111@s.whatsapp.net',
+          },
+          message: { senderKeyDistributionMessage: { axolotlSenderKeyDistributionMessage: 'eA==' } },
+          messageTimestamp: 1700000030,
+        },
+      ],
+    });
+    await new Promise(r => setImmediate(r));
+    expect(onMessage).not.toHaveBeenCalled(); // dropped, not delivered
+
+    // The sender's real message follows, keyed by the bare lid with no Alt of its own; the pair
+    // learned from the dropped SKDM's key must resolve its author to the phone.
+    fakeSock.fire('messages.upsert', {
+      type: 'notify',
+      messages: [
+        {
+          key: { remoteJid: '120363@g.us', fromMe: false, id: 'REAL_LID', participant: '111@lid' },
+          message: { conversation: 'first real message' },
+          messageTimestamp: 1700000031,
+        },
+      ],
+    });
+    await new Promise(r => setImmediate(r));
+    expect(onMessage).toHaveBeenCalledTimes(1);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    const msg = onMessage.mock.calls[0][0] as { author?: string; body: string };
+    expect(msg.author).toBe('628111@c.us');
+    expect(msg.body).toBe('first real message');
+  });
+
   it('media download failure: logs the error and emits the omitted marker (no throw)', async () => {
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
     const baileys = jest.requireMock('@whiskeysockets/baileys') as {
