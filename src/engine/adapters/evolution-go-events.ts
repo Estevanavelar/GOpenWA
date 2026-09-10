@@ -97,20 +97,34 @@ function handleReceipt(adapter: EvolutionGoAdapter, data: Json): boolean {
  * A standalone `Receipt` event: WhatsApp advancing one or more messages' delivery state.
  *
  * This is a DIFFERENT shape from the receipt embedded in a message event, and the distinction
- * matters — the embedded one carries `Info.ID`, this one carries a `MessageIDs` ARRAY plus a
- * `Type` that names the transition. Reading one with the other's field names yields nothing, which
- * is why a send would sit at "sent" forever with no error anywhere.
+ * matters — the embedded one carries `Info.ID`, this one carries a `MessageIDs` ARRAY.
+ *
+ * ## Where the transition actually lives (measured, not assumed)
+ *
+ * The inner `Type` is the obvious field and it is a trap: 0.7.2 sends it **present but empty**, with
+ * the real value in the ENVELOPE's `state` — captured verbatim from a live delivery —
+ *
+ *   { "data": { "MessageIDs": ["3EB0..."], "Type": "" },
+ *     "event": "Receipt", "state": "Delivered" }
+ *
+ * so a reader that trusts `Type` maps the empty string, falls to the default, and emits `sent` for a
+ * message that is already `sent`. Nothing throws, the route answers 200, and every outgoing message
+ * sits one tick short of reality forever. `Type` is still read FIRST because it is the documented
+ * field and a message-embedded receipt legitimately uses it; the envelope is the fallback that makes
+ * the common case work.
  *
  * whatsmeow's vocabulary is the wire's: a `delivered` receipt is the recipient's device
  * acknowledging, and `read` (or `played`, for a voice note) is the blue tick.
  */
-function handleReceiptEvent(adapter: EvolutionGoAdapter, data: Json): boolean {
+function handleReceiptEvent(adapter: EvolutionGoAdapter, data: Json, envelope: Json): boolean {
   const ids = asArray(pick(data, 'MessageIDs', 'MessageIds', 'messageIds', 'ids'))
     .map(entry => (typeof entry === 'string' ? entry : undefined))
     .filter((entry): entry is string => entry !== undefined);
   if (ids.length === 0) return false;
 
-  const status = mapDeliveryStatus(pick(data, 'Type', 'type'));
+  // `pickString` (not `pick`) on purpose: it treats the empty `Type` as absent, which is the whole
+  // bug — `pick` returns "" and `??` only falls through on null/undefined.
+  const status = mapDeliveryStatus(pickString(data, 'Type', 'type') ?? pickString(envelope, 'state', 'State'));
   for (const id of ids) adapter.emitAck(id, status);
   return true;
 }
@@ -265,7 +279,7 @@ export function dispatchRemoteEvent(adapter: EvolutionGoAdapter, event: string, 
     case 'READ_RECEIPT':
       // Delivery/read transitions. Without these an outgoing message never advances past "sent",
       // because nothing else in this engine's surface reports them.
-      return handleReceiptEvent(adapter, data);
+      return handleReceiptEvent(adapter, data, payload);
 
     case 'ChatPresence':
       // The other party typing or recording. The service reports it per chat, and it is what makes

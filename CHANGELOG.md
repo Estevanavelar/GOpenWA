@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The Message Tester's bulk-recipients file picker refuses files over 2 MB before reading them.
 - A misspelled `LOG_LEVEL` fails the boot naming the accepted values, instead of silently logging at info.
 - Dependabot can open better-sqlite3 13.x patch and minor updates again; the freeze now starts at v14.
+- An Evolution Go delivery receipt advances the stored message status to `delivered`. The service sends the transition in the webhook envelope's `state` and leaves the inner `Type` empty, so reading only the documented field left every outgoing message at `sent` forever — with the send returning a real id, the ingress answering 200, and no error anywhere.
 
 ## [0.23.4] - 2026-09-05
 
