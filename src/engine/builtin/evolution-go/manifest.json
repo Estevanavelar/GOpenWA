@@ -1,0 +1,48 @@
+{
+    "id": "evolution-go",
+    "name": "Evolution Go Engine",
+    "version": "1.0.0",
+    "type": "engine",
+    "description": "External Evolution Go service engine adapter for OpenWA — HTTP client, no in-process WhatsApp protocol and no browser",
+    "author": "OpenWA Team",
+    "main": "index.ts",
+    "provides": ["whatsapp-engine"],
+    "configSchema": {
+        "type": "object",
+        "properties": {
+            "baseUrl": {
+                "type": "string",
+                "title": "Service URL",
+                "description": "Where the Evolution Go service answers",
+                "default": "http://openwa-evo-api:8080"
+            },
+            "apiKey": {
+                "type": "string",
+                "title": "Global API Key",
+                "description": "Global key of the engine deployment, used to create and delete instances"
+            },
+            "callbackBaseUrl": {
+                "type": "string",
+                "title": "Callback Base URL",
+                "description": "Address at which the ENGINE reaches this OpenWA instance (webhook + media URLs). Must not be localhost."
+            },
+            "ingressSecret": {
+                "type": "string",
+                "title": "Ingress Secret",
+                "description": "Shared secret on the engine's ingress path. Required: the engine's webhook is unsigned."
+            },
+            "instancePrefix": {
+                "type": "string",
+                "title": "Instance Prefix",
+                "description": "Prefix for every remote instance this gateway owns",
+                "default": "openwa-"
+            },
+            "stateDir": {
+                "type": "string",
+                "title": "State Directory",
+                "description": "Per-session state dir holding the remote instance id and token",
+                "default": "./data/evolution-go"
+            }
+        }
+    }
+}
