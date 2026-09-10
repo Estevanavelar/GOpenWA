@@ -6639,6 +6639,57 @@ the provider sees via its declarative `ack` config (doc 25); the plugin itself a
 
 **Errors:** `401` signature verification failed (missing, stale, or wrong secret) · `403` `GET` verification challenge failed (`verifyToken` mismatch) · `404` unknown pluginId/instanceId, or no such claimed route · `413` body over the route's `maxBodyBytes` · `429` rate limit: the per-instance bucket (`INGRESS_INSTANCE_LIMIT`) or the per-client-IP bucket (`INGRESS_IP_LIMIT`), both per `INGRESS_INSTANCE_TTL`; the global per-IP tiers skip this route, so these two are its bounds, and `Retry-After-instance` / `Retry-After-ingress-ip` names the one that shed the request
 
+### 6.4.18 Engine ingress (internal, Evolution Go)
+
+Two routes exist solely for the engine service to talk to, and both are `@Public()` because the caller is a container that holds no API key — it cannot present one. They are documented here because they are published in `openapi.json`, not because they are part of the public API: neither is intended to be reachable from outside the deployment network, and both carry their own credential in the path instead of an API key. They exist only when `ENGINE_TYPE=evolution-go`.
+
+#### POST /api/engine/evolution-go/webhook/:secret
+
+Inbound webhook from the Evolution Go engine service. Every session on this deployment receives its events here, and the route routes each event to the running engine that owns the named instance (`data.instanceName`, prefix stripped).
+
+**Auth:** none — the engine's webhook is **unsigned**: it sends no HMAC, no signature header and no shared header of any kind. The only credential is the `:secret` path segment, compared in constant time against `EVOLUTION_GO_INGRESS_SECRET`. An unset secret refuses every request rather than accepting every request. A mismatch answers `404` rather than `401` so an unauthenticated caller learns nothing about whether the route exists.
+
+**Body:** the engine's JSON envelope. `event` names the kind, `instanceName` names the instance, `data` carries the payload:
+
+```json
+{
+  "event": "Message",
+  "instanceName": "openwa-my-session",
+  "instanceToken": "…",
+  "instanceId": "…",
+  "data": {
+    "Info": {
+      "Chat": "5511999999999@s.whatsapp.net",
+      "Sender": "5511999999999@s.whatsapp.net",
+      "IsFromMe": false,
+      "IsGroup": false,
+      "ID": "3EB0C767D0…",
+      "PushName": "Fulano",
+      "Timestamp": "2026-09-10T11:42:03.123Z"
+    },
+    "Message": { "conversation": "olá" }
+  }
+}
+```
+
+**Response** `200`
+
+```json
+{ "status": "ok" }
+```
+
+Notes: unrecognised events, an unknown instance and an unroutable body all answer `200` with `{ "status": "ignored", "reason": "…" }`. That is deliberate — the engine retries a non-2xx webhook up to five times, 30 seconds apart, so answering an ignored event with an error would loop forever on something that can never succeed. `data.Info.PushName` is where the display name lives (not `data.PushName`), and `data.Info.Timestamp` is an ISO-8601 string. Media bytes are absent unless the engine sets `WEBHOOK_FILES`; the message then carries only a descriptor, and the adapter records the media as omitted rather than as a zero-byte file. The body is bounded by `BODY_SIZE_LIMIT`, which is the same global cap every other route uses.
+
+#### GET /api/engine/evolution-go/media/:token
+
+Serves the outbound media bytes this gateway hosts so the engine can fetch them. Evolution Go's `/send/media` and `/send/sticker` accept a **URL only** — there is no base64 field anywhere in its contract — so a caller that sends base64 through this API has its bytes stored briefly and published here.
+
+**Auth:** none — the engine fetches this URL from inside its own `/send/media` request and cannot carry an API key. Authorization is the `:token` path segment: an HMAC-SHA256 over the session id, storage key, expiry, mimetype and filename, compared in constant time.
+
+**Response** `200` — the stored bytes, with the `Content-Type` and `Content-Disposition` recorded when the media was hosted, plus `X-Content-Type-Options: nosniff`.
+
+Notes: every refusal — malformed token, tampered token, wrong key, expired token, or a blob that is no longer stored — answers the same `404` with the same message, so the route cannot be used to probe which part failed. The token expires `EVOLUTION_GO_MEDIA_TTL_SECONDS` after it was minted (default 300 s). That window only has to outlive the send call that mints it, because the engine downloads the media synchronously inside that call. Expired blobs are evicted by a periodic sweep; there is no delete route, because nothing about a `GET` would authorize one. Locally-stored-only: when `STORAGE_TYPE=s3` the bytes live in the bucket, and the URL is still served by this gateway.
+
 ## 6.5 Real-time API (WebSocket)
 
 Live events are delivered over a **Socket.IO** connection (not a raw WebSocket). The server mounts a single Socket.IO namespace, **`/events`**, on the same port as the REST API. There are no REST routes in this module.

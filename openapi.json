@@ -340,6 +340,68 @@
         ]
       }
     },
+    "/api/engine/evolution-go/webhook/{secret}": {
+      "post": {
+        "operationId": "EvolutionGoIngressController_webhook",
+        "parameters": [
+          {
+            "name": "secret",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "EvolutionGoIngress"
+        ],
+        "security": []
+      }
+    },
+    "/api/engine/evolution-go/media/{token}": {
+      "get": {
+        "description": "Serves a blob an outbound media send hosted for the engine service to download. Authorized by the signed token in the path — this route requires no API key, because the caller is the engine container itself.",
+        "operationId": "EvolutionGoMediaController_fetch",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "path",
+            "description": "Signed, expiring token minted when the media was hosted",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The stored bytes, with the mimetype and filename the send recorded",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The token is invalid, tampered, expired, or its blob is gone"
+          }
+        },
+        "summary": "Fetch media hosted for the Evolution Go engine",
+        "tags": [
+          "engine"
+        ],
+        "security": []
+      }
+    },
     "/api/sessions": {
       "post": {
         "operationId": "SessionController_create",

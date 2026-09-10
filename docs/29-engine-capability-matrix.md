@@ -213,17 +213,17 @@ session runs; ⚠️ depends on the session engine; ❌ 501 on both.
 
 ### 29.4.1 Session & connection
 
-| Method               | Baileys adapter 🔧⁵ | wwjs adapter 🔧¹ | OpenWA REST |
-| -------------------- | ------------------- | ---------------- | ----------- |
-| `initialize`         | ✅                  | ✅🔧⁴            | ✅          |
-| `disconnect`         | ✅                  | ✅               | ✅          |
-| `logout`             | ✅                  | ✅               | ✅          |
-| `destroy`            | ✅                  | ✅               | ✅          |
-| `forceDestroy`       | ✅                  | ✅               | ✅          |
-| `getQRCode`          | ✅                  | ✅               | ✅          |
-| `requestPairingCode` | ✅                  | ✅               | ✅          |
-| `getStatus`          | ✅                  | ✅               | ✅          |
-| `probeLiveness`      | ✅ local            | ✅ round trip    | ⚙️ internal |
+| Method               | Baileys adapter 🔧⁵ | wwjs adapter 🔧¹ | Evolution Go | OpenWA REST |
+| -------------------- | ------------------- | ---------------- | ------------ | ----------- |
+| `initialize`         | ✅                  | ✅🔧⁴            | ✅           | ✅          |
+| `disconnect`         | ✅                  | ✅               | ✅           | ✅          |
+| `logout`             | ✅                  | ✅               | ✅           | ✅          |
+| `destroy`            | ✅                  | ✅               | ✅           | ✅          |
+| `forceDestroy`       | ✅                  | ✅               | ✅           | ✅          |
+| `getQRCode`          | ✅                  | ✅               | ✅           | ✅          |
+| `requestPairingCode` | ✅                  | ✅               | ✅           | ✅          |
+| `getStatus`          | ✅                  | ✅               | ✅           | ✅          |
+| `probeLiveness`      | ✅ local            | ✅ round trip    | ✅           | ⚙️ internal |
 
 `probeLiveness` is the one optional member of `IWhatsAppEngine`, and the two adapters answer it to
 different depths — which is what the optional marker exists to allow. wwjs races a real
@@ -234,122 +234,122 @@ socket is caught by the transport instead. No REST route: the session watchdog p
 
 ### 29.4.2 Sending messages
 
-| Method                | Baileys adapter 🔧⁵ | wwjs adapter 🔧¹ | OpenWA REST     |
-| --------------------- | ------------------- | ---------------- | --------------- |
-| `sendTextMessage`     | ✅                  | ✅🔧³            | ✅              |
-| `sendImageMessage`    | ✅                  | ✅               | ✅              |
-| `sendVideoMessage`    | ✅                  | ✅               | ✅              |
-| `sendAudioMessage`    | ✅                  | ✅               | ✅              |
-| `sendDocumentMessage` | ✅                  | ✅               | ✅              |
-| `sendStickerMessage`  | ✅                  | ✅               | ✅              |
-| `sendContactMessage`  | ✅                  | ✅               | ✅              |
-| `sendLocationMessage` | ✅                  | ✅               | ✅              |
-| `sendPollMessage`     | ✅                  | ✅               | ✅              |
-| `sendProduct`         | ✅                  | ❌ lib           | ⚠️ baileys only |
-| `sendCatalog`         | ❌ lib              | ❌ lib           | ❌ not exposed  |
-| `replyToMessage`      | ✅                  | ✅               | ✅              |
-| `forwardMessage`      | ✅                  | ✅               | ✅              |
-| `sendChatState`       | ✅                  | ✅               | ✅              |
-| `sendSeen`            | ✅                  | ✅               | ✅              |
+| Method                | Baileys adapter 🔧⁵ | wwjs adapter 🔧¹ | Evolution Go | OpenWA REST         |
+| --------------------- | ------------------- | ---------------- | ------------ | ------------------- |
+| `sendTextMessage`     | ✅                  | ✅🔧³            | ✅           | ✅                  |
+| `sendImageMessage`    | ✅                  | ✅               | ✅           | ✅                  |
+| `sendVideoMessage`    | ✅                  | ✅               | ✅           | ✅                  |
+| `sendAudioMessage`    | ✅                  | ✅               | ✅           | ✅                  |
+| `sendDocumentMessage` | ✅                  | ✅               | ✅           | ✅                  |
+| `sendStickerMessage`  | ✅                  | ✅               | ✅           | ✅                  |
+| `sendContactMessage`  | ✅                  | ✅               | ✅           | ✅                  |
+| `sendLocationMessage` | ✅                  | ✅               | ✅           | ✅                  |
+| `sendPollMessage`     | ✅                  | ✅               | ✅           | ✅                  |
+| `sendProduct`         | ✅                  | ❌ lib           | ❌ lib       | ⚠️ engine-dependent |
+| `sendCatalog`         | ❌ lib              | ❌ lib           | ❌ lib       | ❌ not exposed      |
+| `replyToMessage`      | ✅                  | ✅               | ✅           | ✅                  |
+| `forwardMessage`      | ✅                  | ✅               | ❌ lib       | ⚠️ engine-dependent |
+| `sendChatState`       | ✅                  | ✅               | ✅           | ✅                  |
+| `sendSeen`            | ✅                  | ✅               | ✅           | ✅                  |
 
 ### 29.4.3 Message management
 
-| Method                | Baileys adapter 🔧⁵ | wwjs adapter 🔧¹ | OpenWA REST  |
-| --------------------- | ------------------- | ---------------- | ------------ |
-| `editMessage`         | ✅                  | ✅               | ✅           |
-| `deleteMessage`       | ✅                  | ✅               | ✅           |
-| `reactToMessage`      | ✅                  | ✅               | ✅           |
-| `starMessage`         | ✅                  | ✅               | ✅           |
-| `pinMessage`          | ✅                  | ✅               | ✅           |
-| `unpinMessage`        | ✅                  | ✅               | ✅           |
-| `getMessageReactions` | ❌ lib              | ✅               | ⚠️ wwjs only |
-| `votePoll`            | ❌ lib              | ✅               | ⚠️ wwjs only |
+| Method                | Baileys adapter 🔧⁵ | wwjs adapter 🔧¹ | Evolution Go | OpenWA REST         |
+| --------------------- | ------------------- | ---------------- | ------------ | ------------------- |
+| `editMessage`         | ✅                  | ✅               | ✅           | ✅                  |
+| `deleteMessage`       | ✅                  | ✅               | ✅           | ✅                  |
+| `reactToMessage`      | ✅                  | ✅               | ✅           | ✅                  |
+| `starMessage`         | ✅                  | ✅               | ❌ lib       | ⚠️ engine-dependent |
+| `pinMessage`          | ✅                  | ✅               | ❌ lib       | ⚠️ engine-dependent |
+| `unpinMessage`        | ✅                  | ✅               | ❌ lib       | ⚠️ engine-dependent |
+| `getMessageReactions` | ❌ lib              | ✅               | ❌ lib       | ⚠️ engine-dependent |
+| `votePoll`            | ❌ lib              | ✅               | ❌ lib       | ⚠️ engine-dependent |
 
 ### 29.4.4 Chats
 
-| Method              | Baileys adapter 🔧⁵ | wwjs adapter 🔧¹ | OpenWA REST  |
-| ------------------- | ------------------- | ---------------- | ------------ |
-| `getChats`          | ✅                  | ✅               | ✅           |
-| `getChatHistory`    | ❌ lib              | ✅               | ⚠️ wwjs only |
-| `archiveChat`       | ✅                  | ✅               | ✅           |
-| `clearChatMessages` | ✅                  | ✅               | ✅           |
-| `deleteChat`        | ✅                  | ✅               | ✅           |
-| `markUnread`        | ✅                  | ✅               | ✅           |
-| `muteChat`          | ✅                  | ✅               | ✅           |
-| `pinChat`           | ✅                  | ✅               | ✅           |
+| Method              | Baileys adapter 🔧⁵ | wwjs adapter 🔧¹ | Evolution Go | OpenWA REST         |
+| ------------------- | ------------------- | ---------------- | ------------ | ------------------- |
+| `getChats`          | ✅                  | ✅               | ❌ lib       | ⚠️ engine-dependent |
+| `getChatHistory`    | ❌ lib              | ✅               | ❌ lib       | ⚠️ engine-dependent |
+| `archiveChat`       | ✅                  | ✅               | ✅           | ✅                  |
+| `clearChatMessages` | ✅                  | ✅               | ❌ lib       | ⚠️ engine-dependent |
+| `deleteChat`        | ✅                  | ✅               | ❌ lib       | ⚠️ engine-dependent |
+| `markUnread`        | ✅                  | ✅               | ❌ lib       | ⚠️ engine-dependent |
+| `muteChat`          | ✅                  | ✅               | ✅           | ✅                  |
+| `pinChat`           | ✅                  | ✅               | ✅           | ✅                  |
 
 ### 29.4.5 Contacts
 
-| Method                | Baileys adapter 🔧⁵ | wwjs adapter 🔧¹ | OpenWA REST |
-| --------------------- | ------------------- | ---------------- | ----------- |
-| `getContacts`         | ✅                  | ✅               | ✅          |
-| `getContactById`      | ✅                  | ✅               | ✅          |
-| `upsertContact`       | ✅                  | ✅               | ✅          |
-| `deleteContact`       | ✅                  | ✅               | ✅          |
-| `blockContact`        | ✅                  | ✅               | ✅          |
-| `unblockContact`      | ✅                  | ✅               | ✅          |
-| `getBlockedContacts`  | ✅                  | ✅               | ✅          |
-| `checkNumberExists`   | ✅                  | ✅               | ✅          |
-| `getNumberId`         | ✅                  | ✅               | ✅          |
-| `getPhoneNumber`      | ✅                  | ✅               | ✅          |
-| `getPushName`         | ✅                  | ✅               | ✅          |
-| `resolveContactPhone` | ✅                  | ✅               | ✅          |
-| `getProfilePicture`   | ✅                  | ✅               | ✅          |
+| Method                | Baileys adapter 🔧⁵ | wwjs adapter 🔧¹ | Evolution Go | OpenWA REST         |
+| --------------------- | ------------------- | ---------------- | ------------ | ------------------- |
+| `getContacts`         | ✅                  | ✅               | ✅           | ✅                  |
+| `getContactById`      | ✅                  | ✅               | ✅           | ✅                  |
+| `upsertContact`       | ✅                  | ✅               | ❌ lib       | ⚠️ engine-dependent |
+| `deleteContact`       | ✅                  | ✅               | ❌ lib       | ⚠️ engine-dependent |
+| `blockContact`        | ✅                  | ✅               | ✅           | ✅                  |
+| `unblockContact`      | ✅                  | ✅               | ✅           | ✅                  |
+| `getBlockedContacts`  | ✅                  | ✅               | ✅           | ✅                  |
+| `checkNumberExists`   | ✅                  | ✅               | ✅           | ✅                  |
+| `getNumberId`         | ✅                  | ✅               | ✅           | ✅                  |
+| `getPhoneNumber`      | ✅                  | ✅               | ✅           | ✅                  |
+| `getPushName`         | ✅                  | ✅               | ✅           | ✅                  |
+| `resolveContactPhone` | ✅                  | ✅               | ✅           | ✅                  |
+| `getProfilePicture`   | ✅                  | ✅               | ✅           | ✅                  |
 
 ### 29.4.6 Groups
 
-| Method                           | Baileys adapter 🔧⁵ | wwjs adapter 🔧¹ | OpenWA REST     |
-| -------------------------------- | ------------------- | ---------------- | --------------- |
-| `createGroup`                    | ✅                  | ❌               | ✅              |
-| `getGroups`                      | ✅                  | ✅               | ✅              |
-| `getGroupInfo`                   | ✅                  | ✅               | ✅              |
-| `addParticipants`                | ✅                  | ✅               | ✅              |
-| `removeParticipants`             | ✅                  | ✅🔧⁷            | ✅              |
-| `promoteParticipants`            | ✅                  | ✅🔧⁷            | ✅              |
-| `demoteParticipants`             | ✅                  | ✅🔧⁷            | ✅              |
-| `approveGroupMembershipRequests` | ✅                  | ✅               | ✅              |
-| `rejectGroupMembershipRequests`  | ✅                  | ✅               | ✅              |
-| `getGroupMembershipRequests`     | ✅                  | ✅               | ✅              |
-| `leaveGroup`                     | ✅                  | ✅               | ✅              |
-| `getGroupInviteCode`             | ✅                  | ✅               | ✅              |
-| `joinGroupViaInviteCode`         | ✅                  | ✅               | ✅              |
-| `revokeGroupInviteCode`          | ✅                  | ✅               | ✅              |
-| `getGroupJoinInfo`               | ✅                  | ✅               | ✅              |
-| `setGroupSubject`                | ✅                  | ✅               | ✅              |
-| `setGroupDescription`            | ✅                  | ✅🔧⁹            | ✅              |
-| `setGroupPicture`                | ✅                  | ✅               | ✅              |
-| `deleteGroupPicture`             | ✅                  | ✅               | ✅              |
-| `setGroupMessagesAdminsOnly`     | ✅                  | ✅               | ✅              |
-| `setGroupInfoAdminsOnly`         | ✅                  | ✅               | ✅              |
-| `setGroupMemberAddMode`          | ✅                  | ✅               | ✅              |
-| `setGroupEphemeral`              | ✅                  | ❌ lib           | ⚠️ baileys only |
+| Method                           | Baileys adapter 🔧⁵ | wwjs adapter 🔧¹ | Evolution Go | OpenWA REST         |
+| -------------------------------- | ------------------- | ---------------- | ------------ | ------------------- |
+| `createGroup`                    | ✅                  | ❌               | ✅           | ⚠️ engine-dependent |
+| `getGroups`                      | ✅                  | ✅               | ✅           | ✅                  |
+| `getGroupInfo`                   | ✅                  | ✅               | ✅           | ✅                  |
+| `addParticipants`                | ✅                  | ✅               | ✅           | ✅                  |
+| `removeParticipants`             | ✅                  | ✅🔧⁷            | ✅           | ✅                  |
+| `promoteParticipants`            | ✅                  | ✅🔧⁷            | ✅           | ✅                  |
+| `demoteParticipants`             | ✅                  | ✅🔧⁷            | ✅           | ✅                  |
+| `approveGroupMembershipRequests` | ✅                  | ✅               | ❌ lib       | ⚠️ engine-dependent |
+| `rejectGroupMembershipRequests`  | ✅                  | ✅               | ❌ lib       | ⚠️ engine-dependent |
+| `getGroupMembershipRequests`     | ✅                  | ✅               | ❌ lib       | ⚠️ engine-dependent |
+| `leaveGroup`                     | ✅                  | ✅               | ✅           | ✅                  |
+| `getGroupInviteCode`             | ✅                  | ✅               | ✅           | ✅                  |
+| `joinGroupViaInviteCode`         | ✅                  | ✅               | ✅           | ✅                  |
+| `revokeGroupInviteCode`          | ✅                  | ✅               | ❌ lib       | ⚠️ engine-dependent |
+| `getGroupJoinInfo`               | ✅                  | ✅               | ❌ lib       | ⚠️ engine-dependent |
+| `setGroupSubject`                | ✅                  | ✅               | ✅           | ✅                  |
+| `setGroupDescription`            | ✅                  | ✅🔧⁹            | ✅           | ✅                  |
+| `setGroupPicture`                | ✅                  | ✅               | ✅           | ✅                  |
+| `deleteGroupPicture`             | ✅                  | ✅               | ❌ lib       | ⚠️ engine-dependent |
+| `setGroupMessagesAdminsOnly`     | ✅                  | ✅               | ✅           | ✅                  |
+| `setGroupInfoAdminsOnly`         | ✅                  | ✅               | ✅           | ✅                  |
+| `setGroupMemberAddMode`          | ✅                  | ✅               | ❌ lib       | ⚠️ engine-dependent |
+| `setGroupEphemeral`              | ✅                  | ❌ lib           | ❌ lib       | ⚠️ engine-dependent |
 
 ### 29.4.7 Channels
 
-| Method                     | Baileys adapter 🔧⁵ | wwjs adapter 🔧¹ | OpenWA REST     |
-| -------------------------- | ------------------- | ---------------- | --------------- |
-| `createChannel`            | ✅🔧⁶               | ✅               | ✅              |
-| `deleteChannel`            | ✅                  | ✅               | ✅              |
-| `muteChannel`              | ✅                  | ✅               | ✅              |
-| `demoteChannelAdmin`       | ✅                  | ❌ lib           | ⚠️ baileys only |
-| `transferChannelOwnership` | ✅                  | ❌ lib           | ⚠️ baileys only |
-| `getChannelById`           | ✅                  | ✅               | ✅              |
-| `getChannelMessages`       | ❌ gap              | ✅               | ⚠️ wwjs only    |
-| `getSubscribedChannels`    | ❌ lib              | ✅               | ⚠️ wwjs only    |
-| `subscribeToChannel`       | ✅                  | ❌ gap           | ⚠️ baileys only |
-| `unsubscribeFromChannel`   | ✅                  | ✅               | ✅              |
+| Method                     | Baileys adapter 🔧⁵ | wwjs adapter 🔧¹ | Evolution Go | OpenWA REST         |
+| -------------------------- | ------------------- | ---------------- | ------------ | ------------------- |
+| `createChannel`            | ✅🔧⁶               | ✅               | ✅           | ✅                  |
+| `deleteChannel`            | ✅                  | ✅               | ❌ lib       | ⚠️ engine-dependent |
+| `muteChannel`              | ✅                  | ✅               | ❌ lib       | ⚠️ engine-dependent |
+| `demoteChannelAdmin`       | ✅                  | ❌ lib           | ❌ lib       | ⚠️ engine-dependent |
+| `transferChannelOwnership` | ✅                  | ❌ lib           | ❌ lib       | ⚠️ engine-dependent |
+| `getChannelById`           | ✅                  | ✅               | ✅           | ✅                  |
+| `getChannelMessages`       | ❌ gap              | ✅               | ✅           | ⚠️ engine-dependent |
+| `getSubscribedChannels`    | ❌ lib              | ✅               | ✅           | ⚠️ engine-dependent |
+| `subscribeToChannel`       | ✅                  | ❌ gap           | ✅           | ⚠️ engine-dependent |
+| `unsubscribeFromChannel`   | ✅                  | ✅               | ❌ lib       | ⚠️ engine-dependent |
 
 ### 29.4.8 Status / stories
 
-| Method               | Baileys adapter 🔧⁵ | wwjs adapter 🔧¹ | OpenWA REST  |
-| -------------------- | ------------------- | ---------------- | ------------ |
-| `postTextStatus`     | ✅                  | ✅🔧²            | ✅           |
-| `postImageStatus`    | ✅                  | ✅🔧²            | ✅           |
-| `postVideoStatus`    | ✅                  | ✅🔧²            | ✅           |
-| `postVoiceStatus`    | ✅                  | ✅🔧²            | ✅           |
-| `deleteStatus`       | ✅                  | ✅               | ✅           |
-| `getContactStatus`   | ❌ lib              | ✅               | ✅ (store) ‡ |
-| `getContactStatuses` | ❌ lib              | ✅               | ✅ (store) ‡ |
+| Method               | Baileys adapter 🔧⁵ | wwjs adapter 🔧¹ | Evolution Go | OpenWA REST         |
+| -------------------- | ------------------- | ---------------- | ------------ | ------------------- |
+| `postTextStatus`     | ✅                  | ✅🔧²            | ✅           | ✅                  |
+| `postImageStatus`    | ✅                  | ✅🔧²            | ✅           | ✅                  |
+| `postVideoStatus`    | ✅                  | ✅🔧²            | ✅           | ✅                  |
+| `postVoiceStatus`    | ✅                  | ✅🔧²            | ❌ lib       | ⚠️ engine-dependent |
+| `deleteStatus`       | ✅                  | ✅               | ❌ lib       | ⚠️ engine-dependent |
+| `getContactStatus`   | ❌ lib              | ✅               | ❌ lib       | ⚠️ engine-dependent |
+| `getContactStatuses` | ❌ lib              | ✅               | ❌ lib       | ⚠️ engine-dependent |
 
 ‡ Status **reads** are served from `StatusStoreService` (fed by inbound status ingestion on both
 engines), not by calling the engine — so the REST API is engine-neutral here even though the
@@ -358,45 +358,46 @@ answers 501.
 
 ### 29.4.9 Labels (WA Business)
 
-| Method                | Baileys adapter 🔧⁵ | wwjs adapter 🔧¹ | OpenWA REST     |
-| --------------------- | ------------------- | ---------------- | --------------- |
-| `getLabels`           | ❌ lib              | ✅               | ⚠️ wwjs only    |
-| `getLabelById`        | ❌ lib              | ✅               | ⚠️ wwjs only    |
-| `getChatLabels`       | ❌ lib              | ✅               | ⚠️ wwjs only    |
-| `getChatsByLabel`     | ❌ lib              | ✅               | ⚠️ wwjs only    |
-| `addLabelToChat`      | ✅                  | ✅               | ✅              |
-| `removeLabelFromChat` | ✅                  | ✅               | ✅              |
-| `upsertLabel`         | ✅                  | ❌ lib           | ⚠️ baileys only |
-| `deleteLabel`         | ✅                  | ❌ lib           | ⚠️ baileys only |
+| Method                | Baileys adapter 🔧⁵ | wwjs adapter 🔧¹ | Evolution Go | OpenWA REST         |
+| --------------------- | ------------------- | ---------------- | ------------ | ------------------- |
+| `getLabels`           | ❌ lib              | ✅               | ✅           | ⚠️ engine-dependent |
+| `getLabelById`        | ❌ lib              | ✅               | ✅           | ⚠️ engine-dependent |
+| `getChatLabels`       | ❌ lib              | ✅               | ❌ lib       | ⚠️ engine-dependent |
+| `getChatsByLabel`     | ❌ lib              | ✅               | ❌ lib       | ⚠️ engine-dependent |
+| `addLabelToChat`      | ✅                  | ✅               | ✅           | ✅                  |
+| `removeLabelFromChat` | ✅                  | ✅               | ✅           | ✅                  |
+| `upsertLabel`         | ✅                  | ❌ lib           | ✅           | ⚠️ engine-dependent |
+| `deleteLabel`         | ✅                  | ❌ lib           | ❌ lib       | ⚠️ engine-dependent |
 
 ### 29.4.10 Catalog & products (WA Business)
 
-| Method        | Baileys adapter 🔧⁵ | wwjs adapter 🔧¹ | OpenWA REST     |
-| ------------- | ------------------- | ---------------- | --------------- |
-| `getCatalog`  | ✅                  | ❌ lib           | ⚠️ baileys only |
-| `getProducts` | ✅                  | ❌ lib           | ⚠️ baileys only |
-| `getProduct`  | ✅                  | ❌ lib           | ⚠️ baileys only |
+| Method        | Baileys adapter 🔧⁵ | wwjs adapter 🔧¹ | Evolution Go | OpenWA REST         |
+| ------------- | ------------------- | ---------------- | ------------ | ------------------- |
+| `getCatalog`  | ✅                  | ❌ lib           | ❌ lib       | ⚠️ engine-dependent |
+| `getProducts` | ✅                  | ❌ lib           | ❌ lib       | ⚠️ engine-dependent |
+| `getProduct`  | ✅                  | ❌ lib           | ❌ lib       | ⚠️ engine-dependent |
 
 ### 29.4.11 Own profile & presence
 
-| Method                 | Baileys adapter 🔧⁵ | wwjs adapter 🔧¹ | OpenWA REST |
-| ---------------------- | ------------------- | ---------------- | ----------- |
-| `setProfileName`       | ✅                  | ✅               | ✅          |
-| `setProfilePicture`    | ✅                  | ✅               | ✅          |
-| `deleteProfilePicture` | ✅                  | ✅               | ✅          |
-| `setProfileStatus`     | ✅                  | ✅               | ✅          |
-| `setOnlinePresence`    | ✅                  | ✅               | ✅          |
+| Method                 | Baileys adapter 🔧⁵ | wwjs adapter 🔧¹ | Evolution Go | OpenWA REST         |
+| ---------------------- | ------------------- | ---------------- | ------------ | ------------------- |
+| `setProfileName`       | ✅                  | ✅               | ✅           | ✅                  |
+| `setProfilePicture`    | ✅                  | ✅               | ✅           | ✅                  |
+| `deleteProfilePicture` | ✅                  | ✅               | ❌ lib       | ⚠️ engine-dependent |
+| `setProfileStatus`     | ✅                  | ✅               | ✅           | ✅                  |
+| `setOnlinePresence`    | ✅                  | ✅               | ✅           | ✅                  |
 
 ### 29.4.12 Presence & calls
 
-| Method                | Baileys adapter 🔧⁵ | wwjs adapter 🔧¹ | OpenWA REST     |
-| --------------------- | ------------------- | ---------------- | --------------- |
-| `subscribeToPresence` | ✅                  | ❌ lib           | ⚠️ baileys only |
-| `rejectCall`          | ✅                  | ✅               | ✅              |
-| `createCallLink`      | ✅                  | ✅               | ✅              |
+| Method                | Baileys adapter 🔧⁵ | wwjs adapter 🔧¹ | Evolution Go | OpenWA REST         |
+| --------------------- | ------------------- | ---------------- | ------------ | ------------------- |
+| `subscribeToPresence` | ✅                  | ❌ lib           | ❌ lib       | ⚠️ engine-dependent |
+| `rejectCall`          | ✅                  | ✅               | ✅           | ✅                  |
+| `createCallLink`      | ✅                  | ✅               | ❌ lib       | ⚠️ engine-dependent |
 
-**Totals:** 112 methods → 224 adapter cells: **199 ✅, 25 ❌** (2 adapter-gaps, 23
-library-limitations, 0 uncertain) across 24 methods. From the REST caller's side: **90** methods
+**Totals:** 112 methods → 336 adapter cells: **270 ✅, 66 ❌** (2 adapter-gaps, 55
+library-limitations, 9 uncertain) across 48 methods. Per engine: whatsapp-web.js **99 ✅** / 13 ❌,
+Baileys **100 ✅** / 12 ❌, evolution-go: **71 ✅** / 41 ❌. From the REST caller's side: **66** methods
 work on any engine (89 fully supported + 2 store-backed status reads), **11** are Baileys-only,
 **9** are wwjs-only (the 2 store-backed rows excluded); `sendCatalog`, unavailable on both engines,
 is not exposed.
@@ -835,7 +836,7 @@ OpenWA consumes events by normalizing them into `EngineEventCallbacks`; anything
 | `group_leave`               | ✅           |     | `group_update`         | ✅                                                                              |
 | `group_membership_request`  | ✅           |     |                        |                                                                                 |
 
-## 29.6 The 25 not-available cells in detail
+## 29.6 The 66 not-available cells in detail
 
 Every ❌ in 29.4, with the exact library symbol inspected (full evidence strings:
 `engine-capability-matrix.ts`). All of these throw `EngineNotSupportedError` → HTTP 501 at the
@@ -956,16 +957,19 @@ adapter boundary — none silently stubs.
 Recomputed from `engine-capability-matrix.ts`, `upstream-surface.snapshot.json`, and a scan of the
 adapter sources — re-derive the same way when anything changes:
 
-- **112** interface methods → **224** adapter cells: **199 ✅** / **25 ❌** (2 adapter-gaps, 23
-  library-limitations, 0 uncertain), spanning **24** methods.
-- Of the 199 ✅ cells, **10 wwjs cells carry an explicit patch dependency** (4 × 🔧² status send,
+- **112** interface methods → **336** adapter cells: **270 ✅** / **66 ❌** (2 adapter-gaps, 55
+  library-limitations, 9 uncertain), spanning **48** methods.
+- Per engine: whatsapp-web.js **99 ✅** / 13 ❌, Baileys **100 ✅** / 12 ❌, and the evolution-go column: **71 of 112 ✅** / 41 ❌. Seven methods (createGroup, getChannelMessages, getLabelById, getLabels,
+  getSubscribedChannels, subscribeToChannel, upsertLabel) work on evolution-go but not on at least
+  one library engine, so the three columns are genuinely different views rather than a nesting.
+- Of the 270 ✅ cells, **10 wwjs cells carry an explicit patch dependency** (4 × 🔧² status send,
   1 × 🔧³ channel link preview, 1 × 🔧⁴ ready-sync, 3 × 🔧⁷ participant arity, 1 × 🔧⁹ group
   description) and one baileys cell
   does (1 × 🔧⁶ newsletter-create parse); the whole wwjs column additionally
   depends on 🔧¹, the whole Baileys column on 🔧⁵ — so every row rests on a patch on each side,
   even though no row carries a row-level mark on both.
-- REST caller's view: **90** engine-neutral (88 + 2 store-backed status reads), **12** Baileys-only,
-  **9** wwjs-only; `sendCatalog` (unavailable on both engines) is not exposed.
+- REST caller's view: **66** engine-neutral (64 available on every engine + 2 store-backed status
+  reads); every other row depends on the session's engine and is marked ⚠️ in 29.4; `sendCatalog` (unavailable on both engines) is not exposed.
 - Full engine inventory (29.5), split by the exposure legend rather than lumped: Baileys **152**
   socket methods — 48 wired into interface methods, 5 internal wiring, 29 plumbing, **70 ❌ not
   exposed** (incl. the whole 23-method community cluster); wwjs **81** Client methods — 43 wired,
