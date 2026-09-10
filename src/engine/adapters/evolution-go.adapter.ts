@@ -1091,7 +1091,10 @@ export class EvolutionGoAdapter implements IWhatsAppEngine {
   }
 
   async setGroupSubject(groupId: string, subject: string): Promise<void> {
-    await this.scoped('POST', '/group/name', { groupJid: this.toServiceJid(groupId), groupName: subject });
+    // The field is `name`, NOT `groupName` — the service's struct is {groupJid, name}. A misspelling
+    // is silently dropped by Go's decoder, which leaves `name` empty and makes the endpoint answer
+    // 400: a rename that never happens, with nothing naming the field that was wrong.
+    await this.scoped('POST', '/group/name', { groupJid: this.toServiceJid(groupId), name: subject });
   }
 
   async setGroupDescription(groupId: string, description: string): Promise<void> {
@@ -1329,9 +1332,13 @@ export class EvolutionGoAdapter implements IWhatsAppEngine {
   }
 
   async subscribeToChannel(inviteCode: string): Promise<Channel> {
-    const response = asRecord(
-      await this.scoped<unknown>('POST', '/newsletter/subscribe', { inviteCode, key: inviteCode }),
-    );
+    // The service's struct is {jid}: it has no `inviteCode` and no `key` field, so both spellings
+    // were dropped by the decoder and every call answered 400 for a missing `jid`.
+    //
+    // A bare value is normalised to the newsletter id form, because that is what a caller has: the
+    // code in a channel link IS the channel's id, which is the local part of its jid.
+    const jid = inviteCode.includes('@') ? inviteCode : `${inviteCode}@newsletter`;
+    const response = asRecord(await this.scoped<unknown>('POST', '/newsletter/subscribe', { jid }));
     const channel = response ? this.mapChannel(response) : null;
     if (!channel) {
       throw new EngineRefusedError('Evolution Go did not return the subscribed channel.');
