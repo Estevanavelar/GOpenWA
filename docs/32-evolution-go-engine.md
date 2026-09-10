@@ -237,21 +237,49 @@ missed its window. Re-linking the device is what triggers a fresh initial sync.
 Subscription tokens are SCREAMING_SNAKE and are **not** the same strings as the emitted event names.
 Subscribing to `MESSAGE` is what makes `Message` arrive.
 
-| Emitted event                    | Engine callback                   | Notes                                                                                                   |
-| -------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `Message`                        | `onMessage` / `onMessageCreate`   | Split on `Info.IsFromMe`.                                                                               |
-| `SendMessage`                    | `onMessageCreate`                 | Echo of our own send.                                                                                   |
-| `Receipt`                        | `onMessageAck`                    | Carries a **`MessageIDs` array** and a `Type` — a different shape from a receipt embedded in a message. |
-| `Connected`                      | `onReady`                         | Payload is `{status, jid, pushName}`.                                                                   |
-| `Disconnected`, `ConnectFailure` | `onDisconnected`                  |                                                                                                         |
-| `LoggedOut`                      | `onError` **or** `onDisconnected` | See below.                                                                                              |
-| `TemporaryBan`                   | `onAccountRestriction`            | WhatsApp's own restriction notice.                                                                      |
-| `QRCode`                         | `onQRCode`                        | The name is `QRCode`, not `QrCode` — the sibling integration's guess. Both are accepted.                |
-| `QRTimeout`                      | —                                 | The code expired unscanned. **Not** a failure.                                                          |
-| `HistorySync`                    | `onHistoryMessages`               | See 32.5.                                                                                               |
-| `ChatPresence`                   | `onPresenceUpdate`                | Composing / recording.                                                                                  |
-| `Group`                          | `onGroupEvent`                    |                                                                                                         |
-| `Call`                           | `onCall` / `onCallOutcome`        |                                                                                                         |
+| Emitted event                    | Engine callback                   | Notes                                                                                                                      |
+| -------------------------------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `Message`                        | `onMessage` / `onMessageCreate`   | Split on `Info.IsFromMe`.                                                                                                  |
+| `SendMessage`                    | `onMessageCreate`                 | Echo of our own send.                                                                                                      |
+| `Receipt`                        | `onMessageAck`                    | Carries a **`MessageIDs` array**; the transition is in the **envelope's `state`**, not the empty inner `Type`. See 32.6.2. |
+| `Connected`                      | `onReady`                         | Payload is `{status, jid, pushName}`.                                                                                      |
+| `Disconnected`, `ConnectFailure` | `onDisconnected`                  |                                                                                                                            |
+| `LoggedOut`                      | `onError` **or** `onDisconnected` | See below.                                                                                                                 |
+| `TemporaryBan`                   | `onAccountRestriction`            | WhatsApp's own restriction notice.                                                                                         |
+| `QRCode`                         | `onQRCode`                        | The name is `QRCode`, not `QrCode` — the sibling integration's guess. Both are accepted.                                   |
+| `QRTimeout`                      | —                                 | The code expired unscanned. **Not** a failure.                                                                             |
+| `HistorySync`                    | `onHistoryMessages`               | See 32.5.                                                                                                                  |
+| `ChatPresence`                   | `onPresenceUpdate`                | Composing / recording.                                                                                                     |
+| `Group`                          | `onGroupEvent`                    |                                                                                                                            |
+| `Call`                           | `onCall` / `onCallOutcome`        |                                                                                                                            |
+
+### 32.6.2 A delivery receipt keeps its transition outside `data`
+
+The payload looks like it names the transition in the obvious place. It does not:
+
+```json
+{
+  "data": { "MessageIDs": ["3EB08DF5CC87651BE51DD5"], "Type": "" },
+  "event": "Receipt",
+  "state": "Delivered"
+}
+```
+
+`Type` is **present and empty**. The value that matters is the envelope's `state` — `Delivered`,
+`Read`, `Played` — one level up and outside `data`. The dispatcher hands handlers only the inner
+`data` object, so a reader that trusts `Type` maps the empty string, falls to the documented
+default (`sent`), and emits `sent` for a message that is already `sent`: a no-op.
+
+Nothing about that failure is loud. The send returns a real message id, the ingress answers 200, the
+service logs `Message delivered to …`, the row is written — and every outgoing message sits exactly
+one tick short of reality forever. It was found by **tapping the webhook** (logging and forwarding
+the raw body to a throwaway container), because no amount of reading the documented field reveals a
+value that is never in it.
+
+`data.Type` is still read **first**: it is the documented field, and the receipt embedded in a
+`Message` event legitimately populates it. The envelope is the fallback that makes the common case
+work. `src/engine/adapters/evolution-go-events.spec.ts` pins the captured payload itself as a
+regression fixture.
 
 ### 32.6.1 `LoggedOut` means two different things
 
