@@ -18,8 +18,8 @@ export function labelTools(labels: LabelService): AnyToolDescriptor[] {
     defineTool({
       name: 'LabelFindAll',
       description:
-        'List every label on the account. WhatsApp Business only. Requires the whatsapp-web.js engine — ' +
-        'Baileys exposes no label query at all and answers 501.',
+        'List every label on the account. WhatsApp Business only, and unavailable on the Baileys engine, ' +
+        'which exposes no label query at all and answers 501. Works on whatsapp-web.js and evolution-go.',
       tier: 'read',
       sessionScoped: true,
       inputSchema: z.object({ sessionId }),
@@ -28,8 +28,8 @@ export function labelTools(labels: LabelService): AnyToolDescriptor[] {
     defineTool({
       name: 'LabelFindOne',
       description:
-        'Get one label by id. Answers 404 when no label carries that id. WhatsApp Business only, and ' +
-        'whatsapp-web.js only — Baileys answers 501.',
+        'Get one label by id. Answers 404 when no label carries that id. WhatsApp Business only, and not ' +
+        'available on the Baileys engine. Works on whatsapp-web.js and evolution-go.',
       tier: 'read',
       sessionScoped: true,
       inputSchema: z.object({ sessionId, labelId }),
@@ -59,8 +59,8 @@ export function labelTools(labels: LabelService): AnyToolDescriptor[] {
       description:
         'Create or update a label. One operation on purpose: WhatsApp carries a single write keyed by the ' +
         'label id, so whether this creates or updates depends only on whether that id already exists — ' +
-        'which is why the caller chooses the id. Requires the Baileys engine; whatsapp-web.js cannot edit ' +
-        'labels and answers 501.',
+        'which is why the caller chooses the id. Not available on whatsapp-web.js, which cannot edit labels ' +
+        'and answers 501. Works on Baileys and evolution-go.',
       tier: 'write',
       sessionScoped: true,
       requiredRole: ApiKeyRole.OPERATOR,
@@ -95,7 +95,7 @@ export function labelTools(labels: LabelService): AnyToolDescriptor[] {
     }),
     defineTool({
       name: 'LabelAddToChat',
-      description: 'Tag a chat with an existing label. Works on both engines. WhatsApp Business only.',
+      description: 'Tag a chat with an existing label. WhatsApp Business only; works on every engine.',
       tier: 'write',
       sessionScoped: true,
       requiredRole: ApiKeyRole.OPERATOR,
@@ -106,8 +106,8 @@ export function labelTools(labels: LabelService): AnyToolDescriptor[] {
     defineTool({
       name: 'LabelRemoveFromChat',
       description:
-        'Remove a label from a chat, leaving the label itself in place. Works on both engines. ' +
-        'WhatsApp Business only.',
+        'Remove a label from a chat, leaving the label itself in place. WhatsApp Business only; works on ' +
+        'every engine.',
       tier: 'write',
       sessionScoped: true,
       requiredRole: ApiKeyRole.OPERATOR,

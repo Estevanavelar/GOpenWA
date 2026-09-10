@@ -82,7 +82,8 @@ export function sessionTools(session: SessionService): AnyToolDescriptor[] {
       name: 'SessionGetPresence',
       description:
         'The last presence reported for a chat, or null when none has been — the chat was never ' +
-        'subscribed, or nothing has changed since. Subscribe first with SessionSubscribePresence.',
+        'subscribed, or nothing has changed since. Subscribe first with SessionSubscribePresence. That ' +
+        'subscription is unavailable on the evolution-go engine, so this always answers null there.',
       tier: 'read',
       requiredRole: ApiKeyRole.VIEWER,
       sessionScoped: true,
