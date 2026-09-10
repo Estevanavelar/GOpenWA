@@ -65,6 +65,12 @@ services:
       - POSTGRES_AUTH_DB=postgresql://${EVO_POSTGRES_USER:-postgres}:${EVO_POSTGRES_PASSWORD}@openwa-evo-postgres:5432/evogo_auth?sslmode=disable
       - POSTGRES_USERS_DB=postgresql://${EVO_POSTGRES_USER:-postgres}:${EVO_POSTGRES_PASSWORD}@openwa-evo-postgres:5432/evogo_users?sslmode=disable
       - DATABASE_SAVE_MESSAGES=${EVO_SAVE_MESSAGES:-true}
+      # Inclui os bytes da midia recebida (base64) no payload do webhook. SEM ISTO a mensagem chega
+      # apenas como descritor — mimetype, tamanho, chaves — e o gateway nao tem como servir a midia:
+      # cada clique numa imagem ou audio responde 404. E o valor documentado no .env.example oficial.
+      # Custo: o payload do webhook cresce (uma foto vira centenas de KB), e o teto do corpo JSON do
+      # gateway (BODY_SIZE_LIMIT) e quem o limita.
+      - WEBHOOK_FILES=${EVO_WEBHOOK_FILES:-true}
       - WADEBUG=${EVO_WADEBUG:-INFO}
       - LOGTYPE=console
       # Reconecta as instâncias já pareadas quando este container reinicia. O
