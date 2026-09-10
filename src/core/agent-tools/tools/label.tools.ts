@@ -39,7 +39,7 @@ export function labelTools(labels: LabelService): AnyToolDescriptor[] {
       name: 'LabelListChats',
       description:
         'List the chats carrying a label. Use it to answer "which conversations are tagged X". ' +
-        'WhatsApp Business only, and whatsapp-web.js only — Baileys answers 501.',
+        'WhatsApp Business only, and whatsapp-web.js only — Baileys and evolution-go both answer 501.',
       tier: 'read',
       sessionScoped: true,
       inputSchema: z.object({ sessionId, labelId }),
@@ -48,7 +48,7 @@ export function labelTools(labels: LabelService): AnyToolDescriptor[] {
     defineTool({
       name: 'LabelListForChat',
       description:
-        'List the labels on one chat. WhatsApp Business only, and whatsapp-web.js only — Baileys answers 501.',
+        'List the labels on one chat. WhatsApp Business only, and whatsapp-web.js only — Baileys and evolution-go both answer 501.',
       tier: 'read',
       sessionScoped: true,
       inputSchema: z.object({ sessionId, chatId }),
@@ -85,7 +85,7 @@ export function labelTools(labels: LabelService): AnyToolDescriptor[] {
       name: 'LabelDelete',
       description:
         'Delete a label from the account. This removes the label itself, not its use on one chat — use ' +
-        'LabelRemoveFromChat for that. Requires the Baileys engine; whatsapp-web.js answers 501.',
+        'LabelRemoveFromChat for that. Requires the Baileys engine; whatsapp-web.js and evolution-go both answer 501.',
       tier: 'write',
       sessionScoped: true,
       destructive: true,

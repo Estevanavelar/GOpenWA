@@ -98,7 +98,10 @@ export function messageTools(message: MessageService): AnyToolDescriptor[] {
     defineTool({
       name: 'MessageHistory',
       description:
-        'Fetch live chat history from WhatsApp for a specific chat. Bypasses the local DB — useful for messages that arrived before the gateway started.',
+        'Fetch chat history for a specific chat, newest first. On both built-in engines this reads ' +
+        'LIVE from WhatsApp and bypasses the local DB. On the evolution-go engine, which has no ' +
+        'history route, it is served from the messages this gateway stored instead — so it returns ' +
+        'what the gateway saw while connected, not history from before it started.',
       tier: 'read',
       sessionScoped: true,
       inputSchema: z.object({
@@ -119,7 +122,10 @@ export function messageTools(message: MessageService): AnyToolDescriptor[] {
     }),
     defineTool({
       name: 'MessageGetReactions',
-      description: 'Get reactions for a specific message, including which contacts sent which emoji.',
+      description:
+        'Get reactions for a specific message, including which contacts sent which emoji. Answers 501 ' +
+        'on the evolution-go engine, which can send a reaction but exposes no way to read one back.',
+
       tier: 'read',
       sessionScoped: true,
       inputSchema: z.object({
@@ -407,7 +413,10 @@ export function messageTools(message: MessageService): AnyToolDescriptor[] {
     }),
     defineTool({
       name: 'MessageForward',
-      description: 'Forward a message from one chat to another. Requires OPERATOR role.',
+      description:
+        'Forward a message from one chat to another. Requires OPERATOR role. Answers 501 on the ' +
+        'evolution-go engine, whose API exposes no forward operation at all — do not retry.',
+
       tier: 'write',
       requiredRole: ApiKeyRole.OPERATOR,
       sessionScoped: true,

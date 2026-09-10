@@ -38,7 +38,13 @@ export function sessionTools(session: SessionService): AnyToolDescriptor[] {
     }),
     defineTool({
       name: 'SessionGetChats',
-      description: 'List recent chats for a session (most recent first). Use limit/offset to page through large lists.',
+      description:
+        'List recent chats for a session (most recent first). Use limit/offset to page through large ' +
+        'lists. On the evolution-go engine, which exposes no chat-list route, the list is derived from ' +
+        'the messages this gateway has stored: it covers chats seen since the session connected rather ' +
+        'than the account full history, and unread counts and pin/mute/archive come back false because ' +
+        'nothing tracks them locally.',
+
       tier: 'read',
       sessionScoped: true,
       inputSchema: z.object({
@@ -60,8 +66,9 @@ export function sessionTools(session: SessionService): AnyToolDescriptor[] {
       description:
         "Subscribe to a chat's presence (online / typing / recording). Updates then arrive as " +
         'presence.update events; read the latest with SessionGetPresence. The subscription is lost on ' +
-        'a reconnect and must be re-issued. Not available on the whatsapp-web.js engine. Requires ' +
-        'OPERATOR role.',
+        'a reconnect and must be re-issued. Not available on the whatsapp-web.js engine, nor on the ' +
+        'evolution-go engine — both answer 501, because neither exposes a way to ask for presence on ' +
+        'demand. Requires OPERATOR role.',
       tier: 'write',
       requiredRole: ApiKeyRole.OPERATOR,
       sessionScoped: true,
@@ -111,7 +118,11 @@ export function sessionTools(session: SessionService): AnyToolDescriptor[] {
     }),
     defineTool({
       name: 'SessionMarkChatUnread',
-      description: 'Mark a chat as unread. Requires OPERATOR role.',
+      description:
+        'Mark a chat as unread. Requires OPERATOR role. Answers 501 on the evolution-go engine, whose ' +
+        'receipt endpoint only accepts explicit message IDs — marking a chat READ works there, but ' +
+        'unread has no route.',
+
       tier: 'write',
       requiredRole: ApiKeyRole.OPERATOR,
       sessionScoped: true,
