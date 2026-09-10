@@ -1,0 +1,17 @@
+# ============================================================================
+# Override de DEBUG — publica a porta do Evolution Go SOMENTE em loopback.
+# ============================================================================
+# A stack base não publica porta nenhuma. Use este override apenas para
+# inspecionar o motor do host (Swagger em /swagger/index.html, /instance/all).
+#
+#   docker compose -f evolution-go/docker-compose.yml \
+#                  -f evolution-go/docker-compose.debug.yml up -d
+#
+# O bind é SEMPRE em 127.0.0.1 (EVO_DEBUG_BIND), nunca 0.0.0.0: a convenção do
+# projeto é que acesso externo acontece por túnel SSH, não por porta publicada.
+# ============================================================================
+
+services:
+  evolution-go:
+    ports:
+      - '${EVO_DEBUG_BIND:-127.0.0.1}:${EVO_DEBUG_PORT:-7001}:8080'

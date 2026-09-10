@@ -1,0 +1,123 @@
+# ============================================================================
+# OpenWA — Evolution Go engine (stack DEDICADA)
+# ============================================================================
+# Motor de WhatsApp alternativo do OpenWA (ENGINE_TYPE=evolution-go).
+#
+# ISOLAMENTO (decidido em plano aprovado):
+#   - Stack PRÓPRIA: container + PostgreSQL próprios. NÃO compartilha nada com o
+#     Evolution Go do TurboZap (avelarsys-turbozap-evolution) — namespaces de
+#     instância, bancos e licença ficam separados, então uma sessão do OpenWA
+#     nunca colide com uma sessão do TurboZap.
+#   - Nenhuma porta publicada. O motor escuta apenas na rede docker interna.
+#     Para inspecionar do host, use o override docker-compose.debug.yml (bind em
+#     127.0.0.1) ou um túnel SSH — ver docs/RUNBOOK.md.
+#
+# USO:
+#   docker compose -f evolution-go/docker-compose.yml up -d
+#   docker compose -f evolution-go/docker-compose.yml \
+#                  -f evolution-go/docker-compose.debug.yml up -d   # + porta loopback
+#
+# A imagem é fixada por DIGEST, nunca por `latest`: uma atualização silenciosa já
+# mudou o contrato do QR (Qrcode -> qrcode) no passado. Ver docs/RUNBOOK.md para
+# o procedimento de upgrade.
+# ============================================================================
+
+name: openwa-evolution-go
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: openwa-evo-postgres
+    restart: unless-stopped
+    environment:
+      - TZ=${TZ:-America/Sao_Paulo}
+      - POSTGRES_USER=${EVO_POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${EVO_POSTGRES_PASSWORD:?defina EVO_POSTGRES_PASSWORD em evolution-go/.env}
+      - POSTGRES_DB=postgres
+    volumes:
+      - openwa-evo-postgres-data:/var/lib/postgresql/data
+    networks:
+      - openwa-evolution
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${EVO_POSTGRES_USER:-postgres}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  evolution-go:
+    # v0.7.2 — ver docs/RUNBOOK.md antes de trocar este digest.
+    image: evoapicloud/evolution-go@sha256:6fa601464bd76d3d19ece4c48d8bb5373d025d95d45b939ae4bf0c77b03f5aaa
+    container_name: openwa-evo-api
+    restart: unless-stopped
+    # required:false — o compose não falha com uma mensagem de "env file not found"
+    # quando o operador ainda não criou o .env; o `:?` das variáveis obrigatórias
+    # abaixo é que dá o erro útil.
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - TZ=${TZ:-America/Sao_Paulo}
+      - SERVER_PORT=8080
+      - CLIENT_NAME=${EVO_CLIENT_NAME:-openwa}
+      - GLOBAL_API_KEY=${EVOLUTION_GO_API_KEY:?defina EVOLUTION_GO_API_KEY em evolution-go/.env}
+      # Bancos PRÓPRIOS desta stack (nunca os do TurboZap).
+      - POSTGRES_AUTH_DB=postgresql://${EVO_POSTGRES_USER:-postgres}:${EVO_POSTGRES_PASSWORD}@openwa-evo-postgres:5432/evogo_auth?sslmode=disable
+      - POSTGRES_USERS_DB=postgresql://${EVO_POSTGRES_USER:-postgres}:${EVO_POSTGRES_PASSWORD}@openwa-evo-postgres:5432/evogo_users?sslmode=disable
+      - DATABASE_SAVE_MESSAGES=${EVO_SAVE_MESSAGES:-true}
+      - WADEBUG=${EVO_WADEBUG:-INFO}
+      - LOGTYPE=console
+      # Reconecta as instâncias já pareadas quando este container reinicia. O
+      # OpenWA segue dono do ciclo de vida da sessão (start/stop via REST); isto só
+      # evita que um restart do motor derrube pareamentos vivos.
+      - CONNECT_ON_STARTUP=${EVO_CONNECT_ON_STARTUP:-true}
+      # Teto de mídia aceita pelo motor. O host de mídia do OpenWA já aplica o seu
+      # próprio cap antes de publicar a URL, então este é um segundo limite.
+      - MAX_FILE_SIZE=${EVO_MAX_FILE_SIZE:-52428800}
+      # Webhook GLOBAL desligado de propósito: o OpenWA configura o webhook POR
+      # INSTÂNCIA (POST /instance/connect { webhookUrl, subscribe }), apontando para
+      # a rota interna do próprio OpenWA. Um webhook global aqui mandaria os eventos
+      # desta stack para um destino único e errado.
+      - WEBHOOK_GLOBAL_ENABLED=${EVO_WEBHOOK_GLOBAL_ENABLED:-false}
+    # Lets the engine reach an OpenWA running on the HOST (the development path: `node dist/main`
+    # instead of the container). Without it, the per-instance webhook and every outbound media fetch
+    # resolve `host.docker.internal` nowhere and both fail silently from the engine's side.
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    volumes:
+      - openwa-evo-instances:/evolution/instances
+    networks:
+      - openwa-evolution
+      # O OpenWA precisa alcançar este serviço, e este serviço precisa alcançar a
+      # rota de webhook/mídia do OpenWA. Por isso os dois dividem a openwa-network.
+      - openwa-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      # Mesmo probe da imagem do TurboZap: /manager/login é servido sempre que o
+      # processo HTTP está de pé.
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:8080/manager/login || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  openwa-evo-postgres-data:
+    name: openwa-evo-postgres-data
+    driver: local
+  openwa-evo-instances:
+    name: openwa-evo-instances
+    driver: local
+
+networks:
+  # Rede interna desta stack (Postgres <-> motor).
+  openwa-evolution:
+    name: openwa-evolution
+  # Rede compartilhada com o OpenWA. Criada pelo docker-compose.yml do OpenWA
+  # (name: openwa-network) — suba o OpenWA primeiro, ou crie com:
+  #   docker network create openwa-network
+  openwa-network:
+    name: openwa-network
+    external: true
