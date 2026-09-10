@@ -135,6 +135,28 @@ did not. A chat known only from a backfill therefore rendered as its raw JID in 
 which is the exact case history exists to fix. The history projector now derives it the same way, and
 the mapper supplies the conversation's name when the sender has no push name.
 
+### 32.3.10 The chat transcript is derived from stored messages
+
+The service has no route to read a chat's messages either, so `getChatHistory` answered 501 and the
+dashboard's conversation view was empty — the same shape of problem as the chat list, and fixed the
+same way: on a missing capability, and only then, the transcript is rebuilt from the `messages`
+table, newest first to match the engine contract.
+
+The reconstruction is lossy by nature — the gateway serves what it stored, and fields it never kept
+are absent rather than invented. Media comes from the row when the caller asks for it; nothing is
+downloaded, because there is no fetch to perform and therefore no download budget to ration.
+
+### 32.3.11 Marking a chat read resolves its own message ids
+
+`POST /message/markread` requires the message-id array, and the operation the dashboard performs —
+"mark this conversation read" — supplies none. The adapter refuses that call deliberately, because a
+chat-wide read is not something the remote endpoint can express.
+
+Refusing turned out to be the wrong end of the trade: it left a visible action in the UI permanently
+broken. The gateway already knows the chat's messages, so it resolves the most recent ids from the
+store and acknowledges those. Engines that can mark a whole chat in one call are unaffected — the
+call shape they receive is unchanged.
+
 ### 32.3.9 Both JSON conventions are read
 
 The service marshals the same structs two ways: **Go field names** (PascalCase) on the webhook, and
@@ -149,18 +171,18 @@ Forty-one of the 112 interface methods answer **501**. These are properties of t
 not gaps in the adapter — no wiring here can serve them. Full list in
 [29 — Engine Capability Matrix](./29-engine-capability-matrix.md); the ones that matter in practice:
 
-| Missing                                                                          | Impact                                               | Workaround                                                         |
-| -------------------------------------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------ |
-| `getChats`                                                                       | No native chat list.                                 | Derived from stored messages (32.3.7).                             |
-| `getChatHistory`                                                                 | No message-history read.                             | Live messages are persisted; history arrives only via sync (32.5). |
-| `getCatalog`, `getProducts`, `sendProduct`, `sendCatalog`                        | No WhatsApp Business catalog at all.                 | None.                                                              |
-| `getContactStatuses`, `getContactStatus`, `deleteStatus`                         | Statuses can be posted, never read back or deleted.  | None.                                                              |
-| `getGroupMembershipRequests`, `approve…`, `reject…`                              | No join-approval workflow.                           | None.                                                              |
-| `forwardMessage`, `starMessage`, `votePoll`                                      | No forward, star or poll-vote.                       | None.                                                              |
-| `pinMessage`, `unpinMessage`, `getMessageReactions`                              | No per-message pin; reactions are sent but not read. | None.                                                              |
-| `markUnread`                                                                     | Marking a chat unread has no route.                  | None. `sendSeen` still works **with** explicit message ids.        |
-| `deleteChannel`, `muteChannel`, `demoteChannelAdmin`, `transferChannelOwnership` | Newsletter administration.                           | None.                                                              |
-| `upsertContact`, `deleteContact`                                                 | Contacts are read-only (block/unblock works).        | None.                                                              |
+| Missing                                                                          | Impact                                               | Workaround                                                                                             |
+| -------------------------------------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `getChats`                                                                       | No native chat list.                                 | Derived from stored messages (32.3.7).                                                                 |
+| `getChatHistory`                                                                 | No message-history read.                             | Served from stored messages, newest first (32.3.10). Pre-connection history still needs a sync (32.5). |
+| `getCatalog`, `getProducts`, `sendProduct`, `sendCatalog`                        | No WhatsApp Business catalog at all.                 | None.                                                                                                  |
+| `getContactStatuses`, `getContactStatus`, `deleteStatus`                         | Statuses can be posted, never read back or deleted.  | None.                                                                                                  |
+| `getGroupMembershipRequests`, `approve…`, `reject…`                              | No join-approval workflow.                           | None.                                                                                                  |
+| `forwardMessage`, `starMessage`, `votePoll`                                      | No forward, star or poll-vote.                       | None.                                                                                                  |
+| `pinMessage`, `unpinMessage`, `getMessageReactions`                              | No per-message pin; reactions are sent but not read. | None.                                                                                                  |
+| `markUnread`                                                                     | Marking a chat **un**read has no route.              | None. `sendSeen` works either way — see 32.3.11.                                                       |
+| `deleteChannel`, `muteChannel`, `demoteChannelAdmin`, `transferChannelOwnership` | Newsletter administration.                           | None.                                                                                                  |
+| `upsertContact`, `deleteContact`                                                 | Contacts are read-only (block/unblock works).        | None.                                                                                                  |
 
 ### 32.4.1 Supported, but the service marks them broken upstream
 
@@ -249,6 +271,10 @@ The two settings that are easy to get wrong:
 - **`EVOLUTION_GO_CALLBACK_BASE_URL`** must be an address the **engine container** can resolve. A
   loopback value resolves to the engine itself, so the webhook and every media send fail while the
   send still answers 200.
+- **`WEBHOOK_FILES=true`** is required for inbound media. Without it the service sends a media
+  message as a **descriptor only** — mimetype, size, keys — and the gateway has nothing to serve, so
+  every image or audio click answers 404. The cost is payload size: the webhook body grows by the
+  base64 of each attachment, bounded by the gateway's `BODY_SIZE_LIMIT`.
 - **`NODE_ID`** should be pinned. It defaults to the container hostname, which changes on every
   recreate — and a stale claim then blocks `start` for up to `SESSION_LEASE_TTL_MS`.
 
