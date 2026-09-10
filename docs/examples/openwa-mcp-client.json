@@ -1,0 +1,22 @@
+{
+  "_comment": [
+    "OpenWA MCP server - drop-in client configuration for any MCP-capable LLM",
+    "(Claude Code, Cursor, DSH, ...).",
+    "1. Replace YOUR_API_KEY with a key from data/.api-key (or an operator-created one).",
+    "2. Clients spell \"type\" differently - \"http\", \"streamable-http\", \"streamableHttp\" all",
+    "   reach the same endpoint; use whatever your client documents.",
+    "3. \"Authorization: Bearer YOUR_API_KEY\" works too, for clients that cannot set custom headers.",
+    "4. 127.0.0.1:2785 is the loopback bind. A client on another machine needs an SSH tunnel - see",
+    "   docs/24-mcp-integration.md 24.6. Do not expose the port publicly: the API key is the only",
+    "   credential, and the route is deliberately not behind OAuth."
+  ],
+  "mcpServers": {
+    "openwa": {
+      "type": "http",
+      "url": "http://127.0.0.1:2785/mcp",
+      "headers": {
+        "X-API-Key": "YOUR_API_KEY"
+      }
+    }
+  }
+}

@@ -210,6 +210,9 @@ Point an MCP client at `POST /mcp`. For Claude Code, a `.mcp.json` at your proje
 }
 ```
 
+A ready-to-paste copy of that block, with the header variants and the tunnel caveat, lives in
+[`docs/examples/openwa-mcp-client.json`](examples/openwa-mcp-client.json).
+
 From the client, list tools (you should see the curated set, or only read tools under
 `MCP_READONLY`) and call one (e.g. `SessionFindAll`) to confirm auth and execution.
 
