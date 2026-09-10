@@ -1,18 +1,21 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, OnModuleInit, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { IWhatsAppEngine } from './interfaces/whatsapp-engine.interface';
 import { WhatsAppWebJsAdapter } from './adapters/whatsapp-web-js.adapter';
 import { PluginLoaderService, PluginType, IEnginePlugin, PluginManifest } from '../core/plugins';
 import { WhatsAppWebJsPlugin } from './builtin/whatsapp-web-js';
 import { BaileysPlugin } from './builtin/baileys';
+import { EvolutionGoPlugin } from './builtin/evolution-go';
 import { createLogger } from '../common/services/logger.service';
 import { BaileysMessageStoreService } from './adapters/baileys-message-store.service';
 import { LidMappingStoreService } from './identity/lid-mapping-store.service';
 import { ChatStateStoreService } from './adapters/baileys-chat-state-store.service';
 import { isSafeSessionName } from '../common/utils/path-safety';
 import { ensurePrivateDir } from '../common/utils/private-dir.util';
+import { EvolutionGoMediaHost } from './adapters/evolution-go-media-host';
+import type { MediaHost } from './adapters/evolution-go.adapter';
 
 export interface EngineCreateOptions {
   /** Session NAME — the on-disk auth-directory key (matches the dirs purgeSessionData removes). */
@@ -34,6 +37,20 @@ export class EngineFactory implements OnModuleInit {
     private readonly baileysMessageStore: BaileysMessageStoreService,
     private readonly lidMappingStore: LidMappingStoreService,
     private readonly chatStateStore: ChatStateStoreService,
+    /**
+     * Hosts outbound bytes for engines whose service fetches media by URL rather than accepting the
+     * payload inline. The Evolution Go engine reports a clear transport error if it is asked to send
+     * base64 media without one, rather than silently dropping the media.
+     *
+     * Injected by EXPLICIT token, and optional. The parameter is typed as the structural
+     * {@link MediaHost} interface, and `emitDecoratorMetadata` emits a type-only import as `Object` —
+     * which Nest then tries to resolve as a provider and fails, taking application boot down with an
+     * UnknownDependenciesException. The token removes the guesswork; `@Optional()` keeps the factory
+     * constructible with five arguments, which is how its spec builds it.
+     */
+    @Optional()
+    @Inject(EvolutionGoMediaHost)
+    private readonly mediaHost?: MediaHost,
   ) {
     this.engineType = this.configService.get<string>('engine.type') ?? 'whatsapp-web.js';
   }
@@ -78,6 +95,24 @@ export class EngineFactory implements OnModuleInit {
     this.pluginLoader.registerBuiltInPlugin(
       baileysManifest,
       new BaileysPlugin(this.baileysMessageStore, engineConfig, this.lidMappingStore, this.chatStateStore),
+      engineConfig,
+    );
+
+    // Register Evolution Go as a third built-in engine plugin. Same opaque engine blob; the plugin
+    // reads only its own namespace (engine.evolutionGo). The media host is injected because hosting
+    // outbound bytes needs the application's storage service, which a plugin cannot reach.
+    const evolutionGoManifest: PluginManifest = {
+      id: 'evolution-go',
+      name: 'Evolution Go Engine',
+      version: '1.0.0',
+      type: PluginType.ENGINE,
+      description: 'External Evolution Go service engine adapter (HTTP client, no browser)',
+      main: 'index.ts',
+      provides: ['whatsapp-engine'],
+    };
+    this.pluginLoader.registerBuiltInPlugin(
+      evolutionGoManifest,
+      new EvolutionGoPlugin(engineConfig, this.mediaHost),
       engineConfig,
     );
 

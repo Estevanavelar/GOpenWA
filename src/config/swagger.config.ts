@@ -23,6 +23,12 @@ export const PUBLIC_PATHS = [
   '/api/health/ready',
   '/api/infra/health',
   '/api/ingress/{pluginId}/{instanceId}/{path}',
+  // The Evolution Go engine's internal pair. Both are called by the engine container, which holds no
+  // API key — the ingress carries a shared secret in its path and the media route a signed, expiring
+  // token — so publishing a global X-API-Key requirement on them would describe a credential the
+  // caller cannot present.
+  '/api/engine/evolution-go/webhook/{secret}',
+  '/api/engine/evolution-go/media/{token}',
 ];
 
 const HTTP_METHODS = ['get', 'post', 'put', 'delete', 'patch', 'options', 'head', 'trace', 'search'] as const;

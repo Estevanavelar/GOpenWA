@@ -68,6 +68,20 @@ services:
       - PUPPETEER_HEADLESS=${PUPPETEER_HEADLESS:-true}
       - PUPPETEER_ARGS=${PUPPETEER_ARGS:---no-sandbox,--disable-setuid-sandbox,--disable-dev-shm-usage,--disable-gpu}
       - PUPPETEER_PROTOCOL_TIMEOUT_MS=${PUPPETEER_PROTOCOL_TIMEOUT_MS:-}
+      # Evolution Go engine (ENGINE_TYPE=evolution-go). Blank-forwarded exactly like the keys above,
+      # so a real host/.env value reaches the container and an unset one does not shadow .env /
+      # data/.env.generated with an empty string. The engine service itself is a separate stack —
+      # see evolution-go/docker-compose.yml.
+      - EVOLUTION_GO_URL=${EVOLUTION_GO_URL:-}
+      - EVOLUTION_GO_API_KEY=${EVOLUTION_GO_API_KEY:-}
+      - EVOLUTION_GO_CALLBACK_BASE_URL=${EVOLUTION_GO_CALLBACK_BASE_URL:-}
+      - EVOLUTION_GO_INGRESS_SECRET=${EVOLUTION_GO_INGRESS_SECRET:-}
+      - EVOLUTION_GO_INSTANCE_PREFIX=${EVOLUTION_GO_INSTANCE_PREFIX:-}
+      - EVOLUTION_GO_STATE_DIR=${EVOLUTION_GO_STATE_DIR:-}
+      - EVOLUTION_GO_SUBSCRIBE=${EVOLUTION_GO_SUBSCRIBE:-}
+      - EVOLUTION_GO_TIMEOUT_MS=${EVOLUTION_GO_TIMEOUT_MS:-}
+      - EVOLUTION_GO_MEDIA_TIMEOUT_MS=${EVOLUTION_GO_MEDIA_TIMEOUT_MS:-}
+      - EVOLUTION_GO_MEDIA_TTL_SECONDS=${EVOLUTION_GO_MEDIA_TTL_SECONDS:-}
       # Optional WhatsApp Web version override. DEFAULT (empty, "latest", or "auto"): OpenWA auto-resolves a
       # settled build from the third-party wppconnect-team/wa-version registry and pins its remote HTML
       # (fetched into the web.whatsapp.com origin without an integrity check). Set "off" to disable pinning

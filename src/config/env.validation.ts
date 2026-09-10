@@ -72,7 +72,7 @@ export function validateEnv(config: EnvConfig): EnvConfig {
       errors.push(`${key} must be one of ${allowed.map(v => `"${v}"`).join(', ')} (got "${value}")`);
     }
   };
-  checkEnum('ENGINE_TYPE', ['whatsapp-web.js', 'baileys']);
+  checkEnum('ENGINE_TYPE', ['whatsapp-web.js', 'baileys', 'evolution-go']);
   checkEnum('STORAGE_TYPE', ['local', 's3']);
   // Every production hardening in the repo gates on the exact string 'production', so an
   // unrecognised value silently selects the permissive branch of each one — CORS, Swagger, DTO
@@ -302,6 +302,12 @@ export function validateEnv(config: EnvConfig): EnvConfig {
     'MEDIA_DOWNLOAD_TIMEOUT_MS',
     'INBOUND_MEDIA_CONCURRENCY',
     'CHAT_HISTORY_MEDIA_BUDGET_BYTES',
+    // Evolution Go engine timings, same fall-back-silently reasoning: each read site guards with
+    // `> 0` and quietly substitutes the default, so `30s` (which parses to 30) or a 0 would both
+    // mean "the default" rather than what the operator wrote.
+    'EVOLUTION_GO_TIMEOUT_MS',
+    'EVOLUTION_GO_MEDIA_TIMEOUT_MS',
+    'EVOLUTION_GO_MEDIA_TTL_SECONDS',
   ]) {
     checkPositiveInt(key);
   }

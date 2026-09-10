@@ -238,6 +238,49 @@ export default () => ({
     baileys: {
       authDir: process.env.BAILEYS_AUTH_DIR || './data/baileys',
     },
+    // Evolution Go engine (used when ENGINE_TYPE=evolution-go). Unlike the two library engines, this
+    // one is an HTTP client to a SEPARATE service that owns the WhatsApp connection: no browser, no
+    // in-process socket, and no local auth state — the credentials live in that service's own
+    // database. Everything below is read by the Evolution Go plugin from the opaque engine config
+    // blob (context.config), never passed per-call, so the factory keeps handing adapters only
+    // engine-neutral fields.
+    evolutionGo: {
+      // Where the engine service answers. On the bundled compose network that is the service name.
+      baseUrl: process.env.EVOLUTION_GO_URL || 'http://openwa-evo-api:8080',
+      // Global key, used to create/delete instances. Per-instance calls use the token the service
+      // returns for that instance instead.
+      apiKey: process.env.EVOLUTION_GO_API_KEY || '',
+      // How the ENGINE service reaches THIS OpenWA instance: the per-instance webhook and the media
+      // host both hand out URLs built from it, and the engine fetches them from inside its own
+      // container. A loopback or localhost value is therefore wrong — it resolves to the engine
+      // itself. On the bundled compose network this is the API container.
+      callbackBaseUrl: process.env.EVOLUTION_GO_CALLBACK_BASE_URL || 'http://openwa-api:2785',
+      // Shared secret in the ingress path. The engine's webhook is NOT signed, so this is the only
+      // thing standing between a caller on the docker network and forged session events. Required
+      // for ENGINE_TYPE=evolution-go; an empty value makes the ingress refuse every request.
+      ingressSecret: process.env.EVOLUTION_GO_INGRESS_SECRET || '',
+      // Every remote instance is named '<prefix><session name>', so instances this gateway owns stay
+      // distinguishable from anything else sharing the engine deployment.
+      instancePrefix: process.env.EVOLUTION_GO_INSTANCE_PREFIX || 'openwa-',
+      // Per-session state dir, holding the remote instance id and its token. Mirrors
+      // engine.baileys.authDir: the engine service owns the WhatsApp credentials, but the handle
+      // this gateway authenticates with is local state, and losing it means re-pairing the session.
+      stateDir: process.env.EVOLUTION_GO_STATE_DIR || './data/evolution-go',
+      // Per-request deadline for ordinary calls.
+      timeoutMs: parseInt(process.env.EVOLUTION_GO_TIMEOUT_MS || '30000', 10),
+      // Media sends get their own, much longer deadline: the engine downloads the URL, encrypts and
+      // uploads to WhatsApp inside the request, so a large video legitimately takes a minute+.
+      mediaTimeoutMs: parseInt(process.env.EVOLUTION_GO_MEDIA_TIMEOUT_MS || '120000', 10),
+      // How long a hosted outbound blob stays fetchable. The fetch happens synchronously inside the
+      // send call, so this only has to outlive that call — it is not a delivery window.
+      mediaTtlSeconds: parseInt(process.env.EVOLUTION_GO_MEDIA_TTL_SECONDS || '300', 10),
+      // Event names subscribed on connect. Overridable because the engine's vocabulary has drifted
+      // across releases; the default is the documented set.
+      subscribe: (process.env.EVOLUTION_GO_SUBSCRIBE || 'MESSAGE,SEND_MESSAGE,CONNECTION,QRCODE,CALL,GROUP,CONTACT')
+        .split(',')
+        .map(entry => entry.trim())
+        .filter(Boolean),
+    },
   },
 
   sessions: {

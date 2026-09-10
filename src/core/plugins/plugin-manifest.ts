@@ -7,7 +7,7 @@ import { PluginManifest, PluginType } from './plugin.interfaces';
  * superseded by the marketplace `chat-flow` / `group-translate`) kept reserved so a re-upload or a
  * hand-placed directory can't shadow them.
  */
-export const RESERVED_PLUGIN_IDS = new Set(['whatsapp-web.js', 'baileys', 'auto-reply', 'translation']);
+export const RESERVED_PLUGIN_IDS = new Set(['whatsapp-web.js', 'baileys', 'evolution-go', 'auto-reply', 'translation']);
 
 /** Only extensions are user-installable / directory-loadable; engines (and other tiers) are built-in by design. */
 export const INSTALLABLE_TYPES = new Set<string>([PluginType.EXTENSION]);

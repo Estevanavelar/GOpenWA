@@ -103,6 +103,13 @@ describe('PUBLIC_PATHS drift guard', () => {
     'src/modules/infra/infra-status.controller.ts',
     'src/modules/integration/ingress.controller.ts',
     'src/modules/metrics/metrics.controller.ts',
+    // The Evolution Go engine's two internal routes. Both are called by the engine CONTAINER, which
+    // holds no OpenWA API key and cannot be given one: the ingress is the only way inbound messages
+    // reach this gateway, and the media route is fetched from inside the engine's own send call.
+    // Each carries its own credential in the path instead — a shared secret for the ingress, and a
+    // signed expiring token for the media fetch.
+    'src/engine/adapters/evolution-go-ingress.controller.ts',
+    'src/engine/adapters/evolution-go-media.controller.ts',
   ];
 
   function listTsFiles(dir: string, out: string[] = []): string[] {
@@ -141,6 +148,8 @@ describe('PUBLIC_PATHS drift guard', () => {
         '/api/health/ready',
         '/api/infra/health',
         '/api/ingress/{pluginId}/{instanceId}/{path}',
+        '/api/engine/evolution-go/webhook/{secret}',
+        '/api/engine/evolution-go/media/{token}',
       ].sort(),
     );
   });

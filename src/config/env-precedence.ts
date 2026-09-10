@@ -112,6 +112,20 @@ export const BLANK_SHADOWED_ENV_KEYS: string[] = [
   'SESSION_DATA_PATH',
   'PUPPETEER_ARGS',
   'PUPPETEER_PROTOCOL_TIMEOUT_MS',
+  // Evolution Go engine (ENGINE_TYPE=evolution-go). Not dashboard-managed — the connection details
+  // belong in .env, not in data/.env.generated — but compose blank-forwards them all the same, so
+  // each must be cleared when blank or an empty forward would shadow the .env value and the engine
+  // would come up pointing at nothing.
+  'EVOLUTION_GO_URL',
+  'EVOLUTION_GO_API_KEY',
+  'EVOLUTION_GO_CALLBACK_BASE_URL',
+  'EVOLUTION_GO_INGRESS_SECRET',
+  'EVOLUTION_GO_INSTANCE_PREFIX',
+  'EVOLUTION_GO_STATE_DIR',
+  'EVOLUTION_GO_SUBSCRIBE',
+  'EVOLUTION_GO_TIMEOUT_MS',
+  'EVOLUTION_GO_MEDIA_TIMEOUT_MS',
+  'EVOLUTION_GO_MEDIA_TTL_SECONDS',
   // Rate-limit values are blank-forwarded by Compose so a host value can take precedence without an
   // empty forward masking the lower-priority loaded .env / data/.env.generated value.
   'RATE_LIMIT_SHORT_TTL',
