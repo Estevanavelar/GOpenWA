@@ -1,4 +1,5 @@
 import type { IncomingMessage } from '../../engine/interfaces/whatsapp-engine.interface';
+import { chatKind } from '../../engine/identity/wa-id';
 
 /**
  * Message types whose rows must show a media placeholder even when the payload carried none.
@@ -58,3 +59,90 @@ export function buildMessageMetadata(
 export function storableWaMessageId(id: string | undefined): string | undefined {
   return id || undefined;
 }
+
+/**
+ * Rebuilds the engine-neutral message an API consumer expects, from a stored row.
+ *
+ * Used by the store-backed history read, which exists because an engine may be unable to fetch
+ * history at all (the evolution-go service has no route for it). The row is what the gateway kept,
+ * so this is a lossy reconstruction by nature: the fields the gateway never stored are absent
+ * rather than invented, and `kind` is derived from the id rather than read back.
+ */
+export function rowToIncomingMessage(row: {
+  waMessageId?: string | null;
+  chatId: string;
+  chatName?: string | null;
+  author?: string | null;
+  from: string;
+  to: string;
+  body: string;
+  type: string;
+  direction?: string;
+  timestamp: number;
+  metadata?: Record<string, unknown> | null;
+}): IncomingMessage {
+  const metadata = row.metadata ?? {};
+  const fromMe = row.direction === 'outgoing';
+  const isGroup = row.chatId.endsWith('@g.us');
+
+  const message: IncomingMessage = {
+    // A row without an id is still a message the operator can read; an empty string would collide
+    // with the next such row downstream, so it degrades to '' only here, at the API edge.
+    id: row.waMessageId ?? '',
+    chatId: row.chatId,
+    from: row.from,
+    to: row.to,
+    body: row.body,
+    type: asMessageType(row.type),
+    timestamp: row.timestamp,
+    fromMe,
+    isGroup,
+    kind: chatKind(row.chatId),
+    isStatusBroadcast: row.chatId === 'status@broadcast',
+  };
+
+  if (row.author) message.author = row.author;
+  // The name comes from the row's own column, falling back to the contact block the live path uses
+  // so a consumer sees a name for a chat whose rows were written by either writer.
+  const chatName = row.chatName ?? undefined;
+  if (chatName) message.contact = { id: row.chatId, name: chatName };
+
+  const media = metadata.media as IncomingMessage['media'] | undefined;
+  if (media) message.media = media;
+  const quoted = metadata.quotedMessage as IncomingMessage['quotedMessage'] | undefined;
+  if (quoted) message.quotedMessage = quoted;
+  const call = metadata.call as IncomingMessage['call'] | undefined;
+  if (call) message.call = call;
+
+  return message;
+}
+
+/**
+ * Narrows a stored type string to the neutral vocabulary.
+ *
+ * The column is a plain varchar, so a value written by an older build — or by a future one — must
+ * not be handed to consumers as if it were part of the contract. It falls back to `unknown`, which
+ * is what that member exists for.
+ */
+function asMessageType(value: string): IncomingMessage['type'] {
+  return KNOWN_MESSAGE_TYPES.has(value) ? (value as IncomingMessage['type']) : 'unknown';
+}
+
+const KNOWN_MESSAGE_TYPES = new Set<string>([
+  'text',
+  'image',
+  'video',
+  'audio',
+  'voice',
+  'document',
+  'sticker',
+  'location',
+  'contact',
+  'poll',
+  'call',
+  'revoked',
+  'order',
+  'product',
+  'masked',
+  'unknown',
+]);

@@ -12,6 +12,9 @@ import { SendPacingService } from './send-pacing.service';
 import { createLogger } from '../../common/services/logger.service';
 import { parseWaId } from '../../engine/identity/wa-id';
 import { LidMappingStoreService } from '../../engine/identity/lid-mapping-store.service';
+import { EngineNotSupportedError } from '../../common/errors/engine-not-supported.error';
+import { rowToIncomingMessage } from '../session/message-row.mapper';
+import type { IncomingMessage } from '../../engine/interfaces/whatsapp-engine.interface';
 import { ChatMediaArchiveService } from '../chat-media/chat-media-archive.service';
 import { StorageService, isMissingObjectError } from '../../common/storage/storage.service';
 import { MessageSendService, SaveOutgoingMessageData } from './message-send.service';
@@ -494,9 +497,55 @@ export class MessageService implements PluginMessagePort {
     const ceiling = deep ? MessageService.MAX_DEEP_CHAT_HISTORY_LIMIT : MessageService.MAX_CHAT_HISTORY_LIMIT;
     const safeLimit = Number.isFinite(limit) ? Math.min(Math.max(Math.trunc(limit), 1), ceiling) : 50;
     const media = deep ? false : includeMedia;
-    return signal
-      ? engine.getChatHistory(chatId, safeLimit, media, undefined, signal)
-      : engine.getChatHistory(chatId, safeLimit, media);
+    try {
+      return signal
+        ? await engine.getChatHistory(chatId, safeLimit, media, undefined, signal)
+        : await engine.getChatHistory(chatId, safeLimit, media);
+    } catch (error) {
+      // The engine is the authority on history whenever it can answer. The evolution-go engine
+      // cannot: its service exposes no route to read a chat's messages, so it answers 501 by design.
+      // Leaving that as an error makes the dashboard's whole conversation view empty for a reason
+      // that is not the caller's fault, and every message this gateway has seen is already stored —
+      // so the transcript is served from that instead.
+      if (!(error instanceof EngineNotSupportedError)) throw error;
+      return this.chatHistoryFromStoredMessages(sessionId, chatId, safeLimit, media);
+    }
+  }
+
+  /**
+   * Rebuilds a chat's transcript from the messages this gateway stored.
+   *
+   * Newest first, matching the engine contract. The limit is the caller's, already clamped, so a
+   * bounded request stays bounded here.
+   *
+   * Media is served from the row when the caller asked for it. Nothing is downloaded: the store
+   * holds what the engine already delivered, so the aggregate download budget the live path applies
+   * has nothing to do here — there is no fetch to ration. Rows whose media was never captured carry
+   * the omitted marker and are passed through as such rather than as empty payloads.
+   */
+  private async chatHistoryFromStoredMessages(
+    sessionId: string,
+    chatId: string,
+    limit: number,
+    includeMedia: boolean,
+  ): Promise<IncomingMessage[]> {
+    const rows = await this.messageRepository.find({
+      where: { sessionId, chatId },
+      order: { timestamp: 'DESC' },
+      take: limit,
+    });
+
+    return rows.map(row => {
+      const message = rowToIncomingMessage(row);
+      if (!includeMedia && message.media) {
+        // The caller asked for no payloads. The descriptor stays (mimetype, size, omitted) so the
+        // client can still render the right bubble and fetch the bytes deliberately.
+        const descriptor: IncomingMessage['media'] = { ...message.media };
+        delete descriptor.data;
+        message.media = { ...descriptor, omitted: true };
+      }
+      return message;
+    });
   }
 
   // ========== Delete Message ==========
