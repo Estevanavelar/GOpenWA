@@ -30,39 +30,40 @@
 
 **Full Index (by number)**
 
-| No  | Document                                                                 | Description                                                                        |
-| --- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
-| 01  | [Project Overview](./01-project-overview.md)                             | Vision, goals, scope, current status                                               |
-| 02  | [Requirements Specification](./02-requirements-specification.md)         | Functional and non-functional requirements                                         |
-| 03  | [System Architecture](./03-system-architecture.md)                       | Architecture, modules, and runtime flows                                           |
-| 04  | [Security Design](./04-security-design.md)                               | Auth, rate limiting, and security controls                                         |
-| 05  | [Database Design](./05-database-design.md)                               | Entities and storage considerations                                                |
-| 06  | [API Specification](./06-api-specification.md)                           | REST API and WebSocket protocol                                                    |
-| 07  | [API Collection](./07-api-collection.md)                                 | Example requests and Postman import tips                                           |
-| 08  | [Development Guidelines](./08-development-guidelines.md)                 | Coding standards and workflow                                                      |
-| 09  | [Testing Strategy](./09-testing-strategy.md)                             | Test types and tooling                                                             |
-| 10  | [DevOps & Infrastructure](./10-devops-infrastructure.md)                 | Docker, deployment, and environment configuration                                  |
-| 11  | [Operational Runbooks](./11-operational-runbooks.md)                     | Incident, maintenance, and backup runbooks                                         |
-| 12  | [Troubleshooting FAQ](./12-troubleshooting-faq.md)                       | Common issues and fixes                                                            |
-| 13  | [Horizontal Scaling](./13-horizontal-scaling.md)                         | Multi-node deployment guidance                                                     |
-| 14  | [Migration Guide](./14-migration-guide.md)                               | Upgrade and data migration guidance                                                |
-| 15  | [Project Roadmap](./15-project-roadmap.md)                               | Near-term and long-term roadmap                                                    |
-| 16  | [Risk Management](./16-risk-management.md)                               | Risks and mitigations                                                              |
-| 17  | [Dashboard Design](./17-dashboard-design.md)                             | Dashboard UX overview                                                              |
-| 18  | [SDK Design](./18-sdk-design.md)                                         | SDK plans and conventions                                                          |
-| 19  | [Plugin Architecture](./19-plugin-architecture.md)                       | Extensibility concepts                                                             |
-| 20  | [Community Guidelines](./20-community-guidelines.md)                     | Contribution and governance                                                        |
-| 21  | [Glossary](./21-glossary.md)                                             | Terms and definitions                                                              |
-| 22  | [n8n Integration](./22-n8n-integration.md)                               | n8n community nodes for OpenWA                                                     |
-| 23  | [Community Integrations](./23-community-integrations.md)                 | Third-party adapters built on the OpenWA API                                       |
-| 24  | [MCP Integration](./24-mcp-integration.md)                               | Model Context Protocol tools and auth model                                        |
-| 25  | [Integration Fabric](./25-integration-fabric.md)                         | Inbound webhook substrate for plugin integrations                                  |
-| 26  | [Global Search](./26-global-search.md)                                   | Cross-session message search and the provider model                                |
-| 27  | [Plugin Search Providers](./27-plugin-search-providers.md)               | Writing a search-provider plugin                                                   |
-| 28  | [Multitenancy](./28-multitenancy.md)                                     | Multi-tenant target design (draft proposal)                                        |
-| 29  | [Engine Capability Matrix](./29-engine-capability-matrix.md)             | Per-engine capability support, gaps, and roadmap                                   |
-| 30  | [Plugin Sandboxing](./30-plugin-sandboxing.md)                           | Worker isolation, capabilities, and plugin limits                                  |
-| 31  | [Session Lifecycle: Invariant Catalog](./31-session-lifecycle-design.md) | The race windows the lifecycle defends, where each is defended, which spec pins it |
+| No  | Document                                                                 | Description                                                                                     |
+| --- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| 01  | [Project Overview](./01-project-overview.md)                             | Vision, goals, scope, current status                                                            |
+| 02  | [Requirements Specification](./02-requirements-specification.md)         | Functional and non-functional requirements                                                      |
+| 03  | [System Architecture](./03-system-architecture.md)                       | Architecture, modules, and runtime flows                                                        |
+| 04  | [Security Design](./04-security-design.md)                               | Auth, rate limiting, and security controls                                                      |
+| 05  | [Database Design](./05-database-design.md)                               | Entities and storage considerations                                                             |
+| 06  | [API Specification](./06-api-specification.md)                           | REST API and WebSocket protocol                                                                 |
+| 07  | [API Collection](./07-api-collection.md)                                 | Example requests and Postman import tips                                                        |
+| 08  | [Development Guidelines](./08-development-guidelines.md)                 | Coding standards and workflow                                                                   |
+| 09  | [Testing Strategy](./09-testing-strategy.md)                             | Test types and tooling                                                                          |
+| 10  | [DevOps & Infrastructure](./10-devops-infrastructure.md)                 | Docker, deployment, and environment configuration                                               |
+| 11  | [Operational Runbooks](./11-operational-runbooks.md)                     | Incident, maintenance, and backup runbooks                                                      |
+| 12  | [Troubleshooting FAQ](./12-troubleshooting-faq.md)                       | Common issues and fixes                                                                         |
+| 13  | [Horizontal Scaling](./13-horizontal-scaling.md)                         | Multi-node deployment guidance                                                                  |
+| 14  | [Migration Guide](./14-migration-guide.md)                               | Upgrade and data migration guidance                                                             |
+| 15  | [Project Roadmap](./15-project-roadmap.md)                               | Near-term and long-term roadmap                                                                 |
+| 16  | [Risk Management](./16-risk-management.md)                               | Risks and mitigations                                                                           |
+| 17  | [Dashboard Design](./17-dashboard-design.md)                             | Dashboard UX overview                                                                           |
+| 18  | [SDK Design](./18-sdk-design.md)                                         | SDK plans and conventions                                                                       |
+| 19  | [Plugin Architecture](./19-plugin-architecture.md)                       | Extensibility concepts                                                                          |
+| 20  | [Community Guidelines](./20-community-guidelines.md)                     | Contribution and governance                                                                     |
+| 21  | [Glossary](./21-glossary.md)                                             | Terms and definitions                                                                           |
+| 22  | [n8n Integration](./22-n8n-integration.md)                               | n8n community nodes for OpenWA                                                                  |
+| 23  | [Community Integrations](./23-community-integrations.md)                 | Third-party adapters built on the OpenWA API                                                    |
+| 24  | [MCP Integration](./24-mcp-integration.md)                               | Model Context Protocol tools and auth model                                                     |
+| 25  | [Integration Fabric](./25-integration-fabric.md)                         | Inbound webhook substrate for plugin integrations                                               |
+| 26  | [Global Search](./26-global-search.md)                                   | Cross-session message search and the provider model                                             |
+| 27  | [Plugin Search Providers](./27-plugin-search-providers.md)               | Writing a search-provider plugin                                                                |
+| 28  | [Multitenancy](./28-multitenancy.md)                                     | Multi-tenant target design (draft proposal)                                                     |
+| 29  | [Engine Capability Matrix](./29-engine-capability-matrix.md)             | Per-engine capability support, gaps, and roadmap                                                |
+| 30  | [Plugin Sandboxing](./30-plugin-sandboxing.md)                           | Worker isolation, capabilities, and plugin limits                                               |
+| 31  | [Session Lifecycle: Invariant Catalog](./31-session-lifecycle-design.md) | The race windows the lifecycle defends, where each is defended, which spec pins it              |
+| 32  | [Evolution Go Engine](./32-evolution-go-engine.md)                       | Running WhatsApp through an external service: adaptations, event mapping, and what it cannot do |
 
 **Examples**
 
