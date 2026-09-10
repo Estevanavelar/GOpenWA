@@ -56,6 +56,10 @@ export async function persistHistoryMessages(
           sessionId: id,
           waMessageId: m.id,
           chatId: m.chatId,
+          // The same derivation the LIVE path uses. Without it a backfilled row carries no name, and
+          // a chat known only from history renders as its raw JID in the chat list — which is exactly
+          // the case history exists to fix.
+          chatName: m.contact?.pushName ?? m.contact?.name ?? undefined,
           // Group poster for inbound rows only — the account's own backfilled group messages must
           // not carry author (the column's contract is "null on outgoing echoes").
           author: m.fromMe ? undefined : m.author,
