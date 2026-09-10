@@ -37,6 +37,7 @@ import { resolveFeatureFlags } from '../../config/feature-flags';
 import { IWhatsAppEngine, ChatSummary, ChatState } from '../../engine/interfaces/whatsapp-engine.interface';
 import { Message } from '../message/entities/message.entity';
 import { EngineNotSupportedError } from '../../common/errors/engine-not-supported.error';
+import { EngineRefusedError } from '../../common/errors/engine-refused.error';
 import { chatKind } from '../../engine/identity/wa-id';
 import { createLogger } from '../../common/services/logger.service';
 import { HookManager } from '../../core/hooks';
@@ -111,6 +112,9 @@ const ACTIVE_STATUSES = [
  * alternative is an aggregate over an unbounded table on every page load.
  */
 const CHAT_LIST_MESSAGE_WINDOW = 2000;
+
+/** How many stored message ids a chat-wide "mark as read" acknowledges. */
+const SEND_SEEN_MESSAGE_LIMIT = 50;
 
 @Injectable()
 export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicationBootstrap, PluginSessionPort {
@@ -780,7 +784,45 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
     await this.findOne(id); // Verify session exists
     const engine = this.requireEngine(id);
 
-    return engine.sendSeen(chatId, messageIds);
+    if (messageIds?.length) {
+      return engine.sendSeen(chatId, messageIds);
+    }
+
+    try {
+      // The engines that own their own connection can mark a whole chat read in one call, and for
+      // them nothing changes here.
+      // The call shape is byte-identical to what it was before the fallback existed, so no other
+      // engine observes a difference.
+      return await engine.sendSeen(chatId, messageIds);
+    } catch (error) {
+      if (!(error instanceof EngineRefusedError)) throw error;
+      // An engine that can only acknowledge individual messages refuses this. The ids are not
+      // something the caller must know: this gateway stored the chat's messages, so it resolves the
+      // most recent ones and acknowledges those. Refusing instead would leave the dashboard's own
+      // "mark as read" action permanently broken, which is how this was found.
+      const ids = await this.recentMessageIdsForChat(id, chatId);
+      if (ids.length === 0) return false;
+      return engine.sendSeen(chatId, ids);
+    }
+  }
+
+  /**
+   * The `waMessageId`s this gateway holds for a chat, newest first.
+   *
+   * Bounded: acknowledging a chat means the recent messages a reader would actually be looking at,
+   * not a full history replay. WhatsApp itself treats a read receipt as covering everything up to
+   * the acknowledged message, so the newest ids are what carry the operation.
+   */
+  private async recentMessageIdsForChat(sessionId: string, chatId: string): Promise<string[]> {
+    const rows = await this.messageRepository.find({
+      where: { sessionId, chatId, waMessageId: Not(IsNull()) },
+      order: { timestamp: 'DESC' },
+      take: SEND_SEEN_MESSAGE_LIMIT,
+      select: { waMessageId: true },
+    });
+    return rows
+      .map(row => row.waMessageId)
+      .filter((value): value is string => typeof value === 'string' && value.length > 0);
   }
 
   async markUnread(id: string, chatId: string): Promise<boolean> {
