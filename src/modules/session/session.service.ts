@@ -35,6 +35,9 @@ import { paginate, ListOptions, resolveListWindow } from '../../common/utils/pag
 import { isUniqueViolation } from '../../common/utils/db-errors';
 import { resolveFeatureFlags } from '../../config/feature-flags';
 import { IWhatsAppEngine, ChatSummary, ChatState } from '../../engine/interfaces/whatsapp-engine.interface';
+import { Message } from '../message/entities/message.entity';
+import { EngineNotSupportedError } from '../../common/errors/engine-not-supported.error';
+import { chatKind } from '../../engine/identity/wa-id';
 import { createLogger } from '../../common/services/logger.service';
 import { HookManager } from '../../core/hooks';
 // Type-only: the module binds this class to PLUGIN_SESSION_PORT with a `useExisting` alias, which
@@ -100,6 +103,15 @@ const ACTIVE_STATUSES = [
  * shared EngineRegistry. This service delegates those verbs one-directionally (no forwardRef), so
  * its public surface toward the controller and the feature modules is unchanged by the split.
  */
+/**
+ * How many recent messages the store-backed chat list reads to derive its chats.
+ *
+ * The list is ordered by recency, so the newest messages are what identifies the chats a client shows
+ * first; a chat whose last message falls outside this window is not listed. Bounded on purpose — the
+ * alternative is an aggregate over an unbounded table on every page load.
+ */
+const CHAT_LIST_MESSAGE_WINDOW = 2000;
+
 @Injectable()
 export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicationBootstrap, PluginSessionPort {
   private readonly logger = createLogger('SessionService');
@@ -119,6 +131,8 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
   constructor(
     @InjectRepository(Session, 'data')
     private readonly sessionRepository: Repository<Session>,
+    @InjectRepository(Message, 'data')
+    private readonly messageRepository: Repository<Message>,
     @InjectDataSource('data')
     private readonly dataSource: DataSource,
     private readonly engineRegistry: EngineRegistry,
@@ -666,10 +680,63 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
     await this.findOne(id); // Verify session exists
     const engine = this.requireEngine(id);
 
+    let chats: ChatSummary[];
+    try {
+      chats = [...(await engine.getChats())];
+    } catch (error) {
+      // The engine is the authority on the chat list whenever it can answer. The evolution-go
+      // engine cannot: its service exposes no chat-list route at all, so it answers 501 by design.
+      // Returning nothing there would leave the dashboard's Chats page permanently broken for a
+      // reason that is not the caller's fault, and this gateway already persists every message it
+      // has seen — so the list is derived from that instead.
+      if (!(error instanceof EngineNotSupportedError)) throw error;
+      chats = await this.chatsFromStoredMessages(id);
+    }
+
     // Most-recent first, then bound the response window. Sorting before the cap means a capped
     // response is the N newest chats (what clients show first) rather than an arbitrary slice.
-    const chats = [...(await engine.getChats())].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    chats.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
     return paginate(chats, opts.limit, opts.offset);
+  }
+
+  /**
+   * Derives the chat list from the messages this gateway has stored.
+   *
+   * One chat per `chatId`, described by its most recent message. Reads a bounded window ordered
+   * newest-first and keeps the FIRST row seen per chat, which is its latest — no grouping query, and
+   * therefore no dialect-specific SQL to get wrong across SQLite and Postgres.
+   *
+   * What it deliberately does NOT claim: unread counts and the chat's app-state flags. Nothing tracks
+   * an unread count locally, and pin/mute/archive live in the engine's own store, which is keyed by a
+   * different id dialect — so they come back false rather than as a guess. An empty list is the
+   * honest answer for a session that has not exchanged any messages yet.
+   */
+  private async chatsFromStoredMessages(id: string): Promise<ChatSummary[]> {
+    const recent = await this.messageRepository.find({
+      where: { sessionId: id },
+      order: { timestamp: 'DESC' },
+      take: CHAT_LIST_MESSAGE_WINDOW,
+    });
+
+    const byChat = new Map<string, ChatSummary>();
+    for (const message of recent) {
+      if (byChat.has(message.chatId)) continue;
+      byChat.set(message.chatId, {
+        id: message.chatId,
+        // A chat the gateway never learned a name for is listed under its id rather than as a blank
+        // row the operator cannot identify.
+        name: message.chatName ?? message.chatId,
+        isGroup: message.chatId.endsWith('@g.us'),
+        kind: chatKind(message.chatId),
+        unreadCount: 0,
+        timestamp: message.timestamp,
+        lastMessage: message.body || undefined,
+        archived: false,
+        pinned: false,
+        muted: false,
+      });
+    }
+    return [...byChat.values()];
   }
 
   /**

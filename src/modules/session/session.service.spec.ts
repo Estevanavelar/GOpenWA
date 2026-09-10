@@ -14,6 +14,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { EngineTransportError } from '../../common/errors/engine-transport.error';
+import { EngineNotSupportedError } from '../../common/errors/engine-not-supported.error';
 import { ConfigService } from '@nestjs/config';
 import { SessionService, AUTOSTART_THROTTLE_MS } from './session.service';
 import { ACK_RECONCILE_DELAY_MS } from './message-projector.service';
@@ -5242,6 +5243,82 @@ describe('SessionService', () => {
       const result = await service.getChats('sess-uuid-1', { limit: 5, offset: 0 });
       expect(result).toHaveLength(5);
       expect(result[0].timestamp).toBe(49); // most-recent first
+    });
+
+    it('derives the chat list from stored messages when the engine cannot list chats', async () => {
+      const session = createMockSession();
+      (repository.findOne as jest.Mock).mockResolvedValue(session);
+      (repository.update as jest.Mock).mockResolvedValue({ affected: 1 });
+      await service.start('sess-uuid-1');
+
+      // The evolution-go engine answers 501 here by design: its service has no chat-list route.
+      mockEngine.getChats.mockRejectedValue(new EngineNotSupportedError('getChats'));
+      // Newest first, as the repository query orders them.
+      (messageRepository.find as jest.Mock).mockResolvedValue([
+        { chatId: 'a@c.us', chatName: 'Alice', body: 'newest from Alice', timestamp: 300 },
+        { chatId: 'b@g.us', chatName: 'Team', body: 'newest from Team', timestamp: 200 },
+        { chatId: 'a@c.us', chatName: 'Alice', body: 'older from Alice', timestamp: 100 },
+      ]);
+
+      const result = await service.getChats('sess-uuid-1');
+
+      // One chat per id, described by its LATEST message — not one row per message.
+      expect(result).toHaveLength(2);
+      expect(result[0]).toMatchObject({
+        id: 'a@c.us',
+        name: 'Alice',
+        isGroup: false,
+        kind: 'individual',
+        timestamp: 300,
+        lastMessage: 'newest from Alice',
+      });
+      expect(result[1]).toMatchObject({ id: 'b@g.us', name: 'Team', isGroup: true, kind: 'group' });
+      // Not tracked locally for this engine, so they are false rather than a guess.
+      expect(result[0]).toMatchObject({ unreadCount: 0, archived: false, pinned: false, muted: false });
+    });
+
+    it('lists a nameless chat under its id rather than as a blank row', async () => {
+      const session = createMockSession();
+      (repository.findOne as jest.Mock).mockResolvedValue(session);
+      (repository.update as jest.Mock).mockResolvedValue({ affected: 1 });
+      await service.start('sess-uuid-1');
+
+      mockEngine.getChats.mockRejectedValue(new EngineNotSupportedError('getChats'));
+      (messageRepository.find as jest.Mock).mockResolvedValue([
+        { chatId: '5511999999999@c.us', chatName: undefined, body: '', timestamp: 5 },
+      ]);
+
+      const result = await service.getChats('sess-uuid-1');
+
+      expect(result[0].name).toBe('5511999999999@c.us');
+      // An empty body is "no preview", not an empty-string preview.
+      expect(result[0].lastMessage).toBeUndefined();
+    });
+
+    it('returns an empty list, not a 501, for a session with no stored messages', async () => {
+      const session = createMockSession();
+      (repository.findOne as jest.Mock).mockResolvedValue(session);
+      (repository.update as jest.Mock).mockResolvedValue({ affected: 1 });
+      await service.start('sess-uuid-1');
+
+      mockEngine.getChats.mockRejectedValue(new EngineNotSupportedError('getChats'));
+      (messageRepository.find as jest.Mock).mockResolvedValue([]);
+
+      await expect(service.getChats('sess-uuid-1')).resolves.toEqual([]);
+    });
+
+    it('does NOT fall back for a failure that is not a missing capability', async () => {
+      const session = createMockSession();
+      (repository.findOne as jest.Mock).mockResolvedValue(session);
+      (repository.update as jest.Mock).mockResolvedValue({ affected: 1 });
+      await service.start('sess-uuid-1');
+
+      // A transport failure must stay a transport failure: answering it from a stale local list
+      // would hide an unreachable engine behind a plausible-looking result.
+      mockEngine.getChats.mockRejectedValue(new EngineTransportError('engine unreachable'));
+
+      await expect(service.getChats('sess-uuid-1')).rejects.toBeInstanceOf(EngineTransportError);
+      expect(messageRepository.find).not.toHaveBeenCalled();
     });
 
     it('should throw BadRequestException when session is not started', async () => {
