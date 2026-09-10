@@ -69,21 +69,40 @@ describe('docs/29 counts match the capability matrix', () => {
     const rows = Object.values(engineCapabilityMatrix()).map(entry => ({
       wwjs: entry.wwjs.status,
       baileys: entry.baileys.status,
+      evolutionGo: entry.evolutionGo.status,
     }));
     // Non-vacuous: an empty or truncated matrix would understate every figure and make the whole
     // document "agree".
     expect(rows.length).toBeGreaterThan(80);
 
     const ok = (s: string): boolean => s === 'supported';
-    const supported = rows.filter(r => ok(r.wwjs)).length + rows.filter(r => ok(r.baileys)).length;
+    // Three engines, so every derived figure is over three cells per row. This was the silent half
+    // of the third-engine change: with the multiplication left at two, the document kept restating
+    // a two-engine total that nothing compared against the three-engine matrix.
+    const supported = rows.reduce(
+      (total, r) => total + (ok(r.wwjs) ? 1 : 0) + (ok(r.baileys) ? 1 : 0) + (ok(r.evolutionGo) ? 1 : 0),
+      0,
+    );
     // The REST caller's view counts the two store-backed status reads as neutral rather than
-    // wwjs-only; docs/29 states that adjustment explicitly where it uses the figure.
-    const neutralRaw = rows.filter(r => ok(r.wwjs) && ok(r.baileys)).length;
-    return { methods: rows.length, cells: rows.length * 2, supported, neutral: neutralRaw + 2 };
+    // wwjs-only; docs/29 states that adjustment explicitly where it uses the figure. "Neutral" now
+    // means available on EVERY engine, which is a strictly smaller set than it was with two.
+    const neutralRaw = rows.filter(r => ok(r.wwjs) && ok(r.baileys) && ok(r.evolutionGo)).length;
+    const evoSupported = rows.filter(r => ok(r.evolutionGo)).length;
+    return {
+      methods: rows.length,
+      cells: rows.length * 3,
+      supported,
+      neutral: neutralRaw + 2,
+      evoSupported,
+    };
   };
 
   /** Every phrasing in the file that restates one of those figures. */
-  const CLAIMS: { label: string; re: RegExp; of: 'methods' | 'cells' | 'supported' | 'neutral' }[] = [
+  const CLAIMS: {
+    label: string;
+    re: RegExp;
+    of: 'methods' | 'cells' | 'supported' | 'neutral' | 'evoSupported';
+  }[] = [
     { label: 'intro coverage', re: /Coverage is total: all (\d+) `IWhatsAppEngine` methods/, of: 'methods' },
     { label: 'section guide', re: /Rows are the (\d+) `IWhatsAppEngine` methods/, of: 'methods' },
     { label: 'architecture prose', re: /`IWhatsAppEngine` interface \((\d+) methods/, of: 'methods' },
@@ -97,6 +116,8 @@ describe('docs/29 counts match the capability matrix', () => {
     { label: '29.8 cells', re: /interface methods → \*\*(\d+)\*\* adapter cells/, of: 'cells' },
     { label: '29.8 supported', re: /adapter cells: \*\*(\d+) ✅\*\*/, of: 'supported' },
     { label: '29.8 restated supported', re: /Of the (\d+) ✅ cells/, of: 'supported' },
+    { label: '29.4 evolution-go cells', re: /evolution-go: \*\*(\d+) ✅\*\*/, of: 'evoSupported' },
+    { label: '29.8 evolution-go cells', re: /evolution-go column: \*\*(\d+) of \d+ ✅\*\*/, of: 'evoSupported' },
     { label: '29.8 REST view', re: /REST caller's view: \*\*(\d+)\*\* engine-neutral/, of: 'neutral' },
   ];
 
@@ -188,8 +209,8 @@ describe('docs/29 counts match the capability matrix', () => {
     };
 
     // 29.8's not-available span must match 29.4's, which the matrix-derived test already pins.
-    const spanning = doc.match(/0 uncertain\), spanning \*\*(\d+)\*\* methods/);
-    const across = doc.match(/0 uncertain\) across (\d+) methods/);
+    const spanning = doc.match(/\d+ uncertain\), spanning \*\*(\d+)\*\* methods/);
+    const across = doc.match(/\d+ uncertain\) across (\d+) methods/);
     if (!spanning || !across) wrong.push('not-available span: one of the two phrasings no longer matches');
     else if (spanning[1] !== across[1])
       wrong.push(`not-available span: 29.8 says ${spanning[1]}, 29.4 says ${across[1]}`);

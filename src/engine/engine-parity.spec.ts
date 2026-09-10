@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { BaileysAdapter } from './adapters/baileys.adapter';
 import { WhatsAppWebJsAdapter } from './adapters/whatsapp-web-js.adapter';
+import { EvolutionGoAdapter } from './adapters/evolution-go.adapter';
 import { CURATED_CAPABILITY_EXCEPTIONS, engineCapabilityMatrix } from './engine-capability-matrix';
 
 /**
@@ -50,10 +51,18 @@ describe('the interface reader sees every member', () => {
 });
 
 type AdapterCtor = { prototype: Record<string, unknown> };
-type AdapterKey = 'wwjs' | 'baileys';
+/**
+ * `evolutionGo` is the third engine — an HTTP client to an external service rather than an in-process
+ * library. It joins this scan rather than sitting outside it: the biconditional below is the only
+ * thing that stops an adapter from advertising a capability it answers with a 501, and an engine
+ * whose surface is bounded by someone else's API needs that check more than the library engines do,
+ * not less.
+ */
+type AdapterKey = 'wwjs' | 'baileys' | 'evolutionGo';
 const ADAPTERS: ReadonlyArray<[AdapterKey, AdapterCtor]> = [
   ['wwjs', WhatsAppWebJsAdapter as unknown as AdapterCtor],
   ['baileys', BaileysAdapter as unknown as AdapterCtor],
+  ['evolutionGo', EvolutionGoAdapter as unknown as AdapterCtor],
 ];
 
 /**
@@ -86,7 +95,7 @@ const CONDITIONAL_THROW_SITES: Readonly<Record<string, string>> = {
 };
 
 function readDelegateThrows(): Record<string, Set<string>> {
-  const registry: Record<string, Set<string>> = { wwjs: new Set(), baileys: new Set() };
+  const registry: Record<string, Set<string>> = { wwjs: new Set(), baileys: new Set(), evolutionGo: new Set() };
   for (const file of adapterFiles()) {
     for (const method of throwsIn(file)) {
       if (method in CONDITIONAL_THROW_SITES) continue;
@@ -105,6 +114,9 @@ function adapterFiles(): string[] {
 function prefixEngine(file: string): AdapterKey | undefined {
   if (file.startsWith('baileys')) return 'baileys';
   if (file.startsWith('wwebjs-') || file.startsWith('whatsapp-web-js')) return 'wwjs';
+  // Every evolution-go module shares one prefix — the adapter, its client, its instance manager, its
+  // message mapper, its event mapper and the two internal routes that feed it.
+  if (file.startsWith('evolution-go')) return 'evolutionGo';
   return undefined;
 }
 

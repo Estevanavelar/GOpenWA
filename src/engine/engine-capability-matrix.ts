@@ -63,10 +63,24 @@ export interface AdapterCapability {
   rootCause?: RootCause;
 }
 
+/** The DERIVED row: every engine has a cell, so a reader never has to know which engines exist. */
 export interface MethodCapability {
   wwjs: AdapterCapability;
   baileys: AdapterCapability;
+  evolutionGo: AdapterCapability;
   /** Cited library symbols (baileys; wwjs). Required when at least one adapter is not-available. */
+  evidence?: string;
+}
+
+/**
+ * A CURATED row. Identical to {@link MethodCapability} except that the evolution-go cell is
+ * optional: the ~40 entries below predate that engine and carry no opinion about it, and requiring
+ * a third cell on each would mean restating a default on every line.
+ */
+export interface CuratedMethodCapability {
+  wwjs: AdapterCapability;
+  baileys: AdapterCapability;
+  evolutionGo?: AdapterCapability;
   evidence?: string;
 }
 
@@ -76,7 +90,7 @@ export interface MethodCapability {
  * already produces it); an entry whose method leaves the interface is a fence failure, not a
  * silent drop.
  */
-export const CURATED_CAPABILITY_EXCEPTIONS: Record<string, MethodCapability> = {
+export const CURATED_CAPABILITY_EXCEPTIONS: Record<string, CuratedMethodCapability> = {
   upsertLabel: {
     wwjs: { status: 'not-available', rootCause: 'library-limitation' },
     baileys: { status: 'supported' },
@@ -433,11 +447,105 @@ export const CURATED_CAPABILITY_EXCEPTIONS: Record<string, MethodCapability> = {
 };
 
 /**
- * The `IWhatsAppEngine` method inventory, read from the interface file itself — the same source of
- * truth `engine-parity.spec.ts` walks with its own copy of this regex. The two readers are bound
+ * The evolution-go half of the truth: every interface method its adapter REFUSES.
+ *
+ * The default for this engine is \`supported\`, matching the other two columns — not a claim about the
+ * remote API but a statement about the GATE: \`engine-parity.spec.ts\` requires a \`not-available\` cell
+ * if and only if the adapter method throws \`EngineNotSupportedError\`. A method wrongly left out of
+ * this map therefore fails the parity gate instead of quietly advertising a capability that answers
+ * 501 at runtime, which is why the default is safe to be permissive.
+ *
+ * Availability here is bounded by the remote service's contract, not by this repository: these
+ * methods have no counterpart endpoint in Evolution Go v0.7.2, so no amount of adapter wiring can
+ * serve them. \`uncertain\` marks the rows where an endpoint might exist behind parameters the
+ * published contract does not describe — each one is a live spike, not a design decision.
+ */
+export const EVOLUTION_GO_CAPABILITY_EXCEPTIONS: Record<string, AdapterCapability> = {
+  // Message operations with no endpoint at all. \`/message/*\` exposes react, edit, delete, markread,
+  // markplayed and presence, and nothing that forwards, stars, pin-individually, votes or reads
+  // reactions back — the service's own send structs carry a \`forwardingScore\` field, which is a
+  // property of a forward rather than an operation that performs one.
+  forwardMessage: { status: 'not-available', rootCause: 'library-limitation' },
+  getMessageReactions: { status: 'not-available', rootCause: 'library-limitation' },
+  starMessage: { status: 'not-available', rootCause: 'library-limitation' },
+  votePoll: { status: 'not-available', rootCause: 'library-limitation' },
+  pinMessage: { status: 'not-available', rootCause: 'library-limitation' },
+  unpinMessage: { status: 'not-available', rootCause: 'library-limitation' },
+
+  // History. \`/chat/history-sync\` TRIGGERS a sync rather than returning one, and the service owns
+  // the message store; a read would have to come from this gateway's own messages table.
+  getChatHistory: { status: 'not-available', rootCause: 'uncertain' },
+
+  // No endpoint lists or deletes chats. Note this is a real product gap, not just an API one: the
+  // chat-list endpoint of this gateway is backed by it.
+  getChats: { status: 'not-available', rootCause: 'uncertain' },
+  deleteChat: { status: 'not-available', rootCause: 'library-limitation' },
+  clearChatMessages: { status: 'not-available', rootCause: 'library-limitation' },
+
+  // Contact writes: the service reads contacts and can block/unblock, but has no create/update/delete.
+  upsertContact: { status: 'not-available', rootCause: 'library-limitation' },
+  deleteContact: { status: 'not-available', rootCause: 'library-limitation' },
+
+  // Group membership approvals. The service exposes participant add/remove/promote/demote and no
+  // read of pending requests, so the whole approval workflow is unavailable.
+  getGroupMembershipRequests: { status: 'not-available', rootCause: 'library-limitation' },
+  approveGroupMembershipRequests: { status: 'not-available', rootCause: 'library-limitation' },
+  rejectGroupMembershipRequests: { status: 'not-available', rootCause: 'library-limitation' },
+  revokeGroupInviteCode: { status: 'not-available', rootCause: 'uncertain' },
+  getGroupJoinInfo: { status: 'not-available', rootCause: 'uncertain' },
+  deleteGroupPicture: { status: 'not-available', rootCause: 'uncertain' },
+  setGroupMemberAddMode: { status: 'not-available', rootCause: 'library-limitation' },
+  setGroupEphemeral: { status: 'not-available', rootCause: 'library-limitation' },
+
+  // Calls: only rejection is exposed.
+  createCallLink: { status: 'not-available', rootCause: 'library-limitation' },
+
+  // Profile: the service can set a picture but not remove one.
+  deleteProfilePicture: { status: 'not-available', rootCause: 'uncertain' },
+
+  // Labels: read, create/update and per-chat attach/detach exist; delete and the reverse lookups do not.
+  getChatLabels: { status: 'not-available', rootCause: 'library-limitation' },
+  deleteLabel: { status: 'not-available', rootCause: 'uncertain' },
+  getChatsByLabel: { status: 'not-available', rootCause: 'library-limitation' },
+
+  // Newsletters: list/info/subscribe/messages/create exist; unsubscribe and the admin operations do not.
+  unsubscribeFromChannel: { status: 'not-available', rootCause: 'uncertain' },
+  deleteChannel: { status: 'not-available', rootCause: 'library-limitation' },
+  muteChannel: { status: 'not-available', rootCause: 'library-limitation' },
+  demoteChannelAdmin: { status: 'not-available', rootCause: 'library-limitation' },
+  transferChannelOwnership: { status: 'not-available', rootCause: 'library-limitation' },
+
+  // Status/stories: the service POSTS text and image/video statuses and cannot read or delete them.
+  // Voice status specifically is refused because \`/send/status/media\` accepts image and video only.
+  getContactStatuses: { status: 'not-available', rootCause: 'library-limitation' },
+  getContactStatus: { status: 'not-available', rootCause: 'library-limitation' },
+  postVoiceStatus: { status: 'not-available', rootCause: 'uncertain' },
+  deleteStatus: { status: 'not-available', rootCause: 'library-limitation' },
+
+  // WhatsApp Business catalog: no endpoint in this service at all.
+  getCatalog: { status: 'not-available', rootCause: 'library-limitation' },
+  getProducts: { status: 'not-available', rootCause: 'library-limitation' },
+  getProduct: { status: 'not-available', rootCause: 'library-limitation' },
+  sendProduct: { status: 'not-available', rootCause: 'library-limitation' },
+  sendCatalog: { status: 'not-available', rootCause: 'library-limitation' },
+
+  // Presence is push-only in the other direction: the service SETS presence, it does not subscribe
+  // a chat's presence for us.
+  subscribeToPresence: { status: 'not-available', rootCause: 'library-limitation' },
+
+  // `/message/markread` REQUIRES the message-id array ("id is required" without it), and there is no
+  // route that marks a whole conversation unread — which is exactly what this method names, since it
+  // takes no ids. `sendSeen` keeps its row: it CAN be served when the caller passes ids, and refuses
+  // the chat-wide form at the adapter boundary with an EngineRefused rather than a 501.
+  markUnread: { status: 'not-available', rootCause: 'library-limitation' },
+};
+
+/**
+ * The \`IWhatsAppEngine\` method inventory, read from the interface file itself — the same source of
+ * truth \`engine-parity.spec.ts\` walks with its own copy of this regex. The two readers are bound
  * together by the parity gate's correspondence check: if either drifted, the derived matrix keys
- * and the spec's inventory would disagree and the spec would fail. `\??` is load-bearing — an
- * optional member (`probeLiveness?()`) is still a member.
+ * and the spec's inventory would disagree and the spec would fail. \`\??\` is load-bearing — an
+ * optional member (\`probeLiveness?()\`) is still a member.
  */
 const MEMBER_RE = /^\s{2}([a-zA-Z][a-zA-Z0-9]*)\??\s*\(/;
 
@@ -479,12 +587,15 @@ function deriveEngineCapabilityMatrix(): Record<string, MethodCapability> {
   for (const method of readInterfaceMethods()) {
     // Copy, never alias: a consumer mutating its matrix row (or an adapter cell on it) must not
     // write through into CURATED_CAPABILITY_EXCEPTIONS, which every future derivation reads.
-    matrix[method] = copyCapability(
-      CURATED_CAPABILITY_EXCEPTIONS[method] ?? {
-        wwjs: { status: 'supported' },
-        baileys: { status: 'supported' },
-      },
-    );
+    const curated = CURATED_CAPABILITY_EXCEPTIONS[method];
+    matrix[method] = copyCapability({
+      wwjs: curated?.wwjs ?? { status: 'supported' },
+      baileys: curated?.baileys ?? { status: 'supported' },
+      // Two sources, most specific first: the evolution-go exception table (which refuses a
+      // capability the remote API lacks), then any opinion a curated row carries about this engine.
+      evolutionGo: EVOLUTION_GO_CAPABILITY_EXCEPTIONS[method] ?? curated?.evolutionGo ?? { status: 'supported' },
+      evidence: curated?.evidence,
+    });
   }
   return matrix;
 }
@@ -492,7 +603,11 @@ function deriveEngineCapabilityMatrix(): Record<string, MethodCapability> {
 /** A two-level copy — exactly the shape MethodCapability has, so the derived row shares no object
  * with the curated table it came from. */
 function copyCapability(entry: MethodCapability): MethodCapability {
-  const copy: MethodCapability = { wwjs: { ...entry.wwjs }, baileys: { ...entry.baileys } };
+  const copy: MethodCapability = {
+    wwjs: { ...entry.wwjs },
+    baileys: { ...entry.baileys },
+    evolutionGo: { ...entry.evolutionGo },
+  };
   if (entry.evidence !== undefined) copy.evidence = entry.evidence;
   return copy;
 }
