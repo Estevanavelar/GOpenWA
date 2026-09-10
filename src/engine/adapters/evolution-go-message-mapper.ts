@@ -36,6 +36,11 @@ function asBoolean(value: unknown): boolean | undefined {
   return typeof value === 'boolean' ? value : undefined;
 }
 
+/** An array view of a loosely-typed field; anything else reads as empty rather than throwing. */
+function asArray(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
 /**
  * First present value among `keys`, so a field can be read under either JSON convention.
  *
@@ -344,4 +349,136 @@ export function mapIncomingMessage(data: Json, options: MapMessageOptions = {}):
   }
 
   return message;
+}
+
+/** One chat's worth of history, as the sync reports it. */
+export interface MappedHistoryBatch {
+  /** Historical messages, in the neutral shape the persistence path expects. */
+  messages: MappedMessage[];
+  /**
+   * Display names the sync disclosed, keyed by NEUTRAL chat id.
+   *
+   * History conversations carry the chat's name, which the message rows do not otherwise have — a
+   * backfilled row would show its raw id in the chat list without this.
+   */
+  chatNames: Record<string, string>;
+  /** How far along the sync is, 0-100, when the service reports it. */
+  progress?: number;
+}
+
+/**
+ * Maps a HistorySync event into the neutral shape.
+ *
+ * This is the ONLY source of pre-connection history for this engine, and the service pushes it once
+ * per newly linked device. Everything about the parsing is therefore defensive: a field this fails to
+ * read is history that never reaches the chat list again.
+ *
+ * The payload nests several levels deep and mixes two JSON conventions — the wrappers are Go structs
+ * without tags (PascalCase) while the protobuf bodies carry generated json tags (camelCase) — so each
+ * level is read under both spellings. Timestamps are protobuf uint64, which serialise to a STRING.
+ */
+export function mapHistorySync(data: Json, options: MapMessageOptions = {}): MappedHistoryBatch {
+  const batch: MappedHistoryBatch = { messages: [], chatNames: {} };
+
+  const payload = asObject(pick(data, 'Data', 'data')) ?? data;
+  const conversations = asArray(pick(payload, 'conversations', 'Conversations'));
+  if (conversations.length === 0) return batch;
+
+  const progressValue = pick(payload, 'progress', 'Progress');
+  if (typeof progressValue === 'number') batch.progress = progressValue;
+
+  const resolvePhone = options.resolvePhone;
+
+  for (const rawConversation of conversations) {
+    const conversation = asObject(rawConversation);
+    if (!conversation) continue;
+
+    const chatRaw = pickString(conversation, 'id', 'ID', 'jid', 'JID');
+    if (!chatRaw) continue;
+    const chatId = toNeutralJid(chatRaw, resolvePhone);
+    const isGroup = chatId.endsWith('@g.us');
+
+    const chatName = pickString(conversation, 'name', 'Name');
+    if (chatName) batch.chatNames[chatId] = chatName;
+
+    for (const rawEntry of asArray(pick(conversation, 'messages', 'Messages'))) {
+      const entry = asObject(rawEntry);
+      if (!entry) continue;
+
+      // The entry wraps the message under `message`; some builds put it at the top level instead.
+      const info = asObject(pick(entry, 'message', 'Message')) ?? entry;
+
+      const key = asObject(pick(info, 'key', 'Key'));
+      const id = pickString(key, 'id', 'ID');
+      if (!id) continue;
+
+      const content = asObject(pick(info, 'message', 'Message'));
+      if (!content) continue;
+
+      const fromMe = pickBoolean(key, 'fromMe', 'FromMe') ?? false;
+      const senderRaw =
+        pickString(key, 'participant', 'Participant') ?? pickString(key, 'remoteJid', 'remoteJid', 'RemoteJid');
+      const authorId = toNeutralJid(senderRaw ?? chatRaw, resolvePhone);
+
+      // The same orientation the live path uses: in a group the message belongs to the GROUP and the
+      // sender rides on `author`; outside one, from/to are us and the counterparty.
+      const from = isGroup ? chatId : fromMe ? chatId : authorId;
+      const to = isGroup ? authorId : fromMe ? authorId : chatId;
+
+      const parsed = parseContent(content);
+      const pushName = pickString(info, 'pushName', 'PushName');
+
+      const message: MappedMessage = {
+        id,
+        from,
+        to,
+        chatId,
+        body: parsed.body,
+        type: parsed.type,
+        timestamp: parseTimestamp(pick(info, 'messageTimestamp', 'MessageTimestamp')),
+        fromMe,
+        isGroup,
+        kind: chatKind(chatId),
+        isStatusBroadcast: chatId === 'status@broadcast',
+        author: isGroup ? authorId : undefined,
+        mentionedIds: parsed.mentionedIds?.map(entryId => toNeutralJid(entryId, resolvePhone)),
+        rawContent: content,
+        rawInfo: info,
+      };
+
+      // History carries descriptors, not payloads: downloading media for a bulk sync would mean one
+      // round trip per message, which is exactly what a backfill must not do. An omission is
+      // recorded rather than left absent, so a consumer can tell "not fetched" from "there was none".
+      if (parsed.inlineBase64) {
+        message.media = {
+          mimetype: parsed.mimetype ?? 'application/octet-stream',
+          filename: parsed.filename,
+          data: parsed.inlineBase64,
+        };
+      } else if (parsed.type !== 'text' && parsed.type !== 'location' && parsed.type !== 'unknown') {
+        message.media = { mimetype: parsed.mimetype ?? 'application/octet-stream', omitted: true };
+      }
+
+      // pushName is the sender's own display name and wins; the conversation's name is the
+      // fallback, and it is often the only name a history row has (a saved contact whose owner never
+      // set a push name). Carried on `contact` because that is where the persistence path reads a
+      // chat's name from, in both the live and the history writers.
+      if (pushName || chatName) {
+        message.contact = { id: authorId, pushName, name: chatName };
+      }
+
+      if (parsed.type === 'location' && Number.isFinite(parsed.latitude) && Number.isFinite(parsed.longitude)) {
+        message.location = {
+          latitude: parsed.latitude as number,
+          longitude: parsed.longitude as number,
+          description: parsed.locationName,
+          address: parsed.locationAddress,
+        };
+      }
+
+      batch.messages.push(message);
+    }
+  }
+
+  return batch;
 }

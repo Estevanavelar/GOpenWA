@@ -17,6 +17,7 @@
 
 import type { CallOutcome, DeliveryStatus } from '../interfaces/whatsapp-engine.interface';
 import type { EvolutionGoAdapter } from './evolution-go.adapter';
+import { mapHistorySync } from './evolution-go-message-mapper';
 
 type Json = Record<string, unknown>;
 
@@ -90,6 +91,41 @@ function handleReceipt(adapter: EvolutionGoAdapter, data: Json): boolean {
   if (!id || status === undefined) return false;
   adapter.emitAck(id, mapDeliveryStatus(status));
   return true;
+}
+
+/**
+ * A standalone `Receipt` event: WhatsApp advancing one or more messages' delivery state.
+ *
+ * This is a DIFFERENT shape from the receipt embedded in a message event, and the distinction
+ * matters — the embedded one carries `Info.ID`, this one carries a `MessageIDs` ARRAY plus a
+ * `Type` that names the transition. Reading one with the other's field names yields nothing, which
+ * is why a send would sit at "sent" forever with no error anywhere.
+ *
+ * whatsmeow's vocabulary is the wire's: a `delivered` receipt is the recipient's device
+ * acknowledging, and `read` (or `played`, for a voice note) is the blue tick.
+ */
+function handleReceiptEvent(adapter: EvolutionGoAdapter, data: Json): boolean {
+  const ids = asArray(pick(data, 'MessageIDs', 'MessageIds', 'messageIds', 'ids'))
+    .map(entry => (typeof entry === 'string' ? entry : undefined))
+    .filter((entry): entry is string => entry !== undefined);
+  if (ids.length === 0) return false;
+
+  const status = mapDeliveryStatus(pick(data, 'Type', 'type'));
+  for (const id of ids) adapter.emitAck(id, status);
+  return true;
+}
+
+/** The counterparty's typing/recording indicator, reported per chat. */
+function handleChatPresence(adapter: EvolutionGoAdapter, data: Json): void {
+  const chatId = pickString(data, 'Chat', 'chat', 'jid', 'JID');
+  if (!chatId) return;
+  const rawState = (pickString(data, 'State', 'state', 'type', 'Type') ?? '').toLowerCase();
+  const isAudio = pick(data, 'IsAudio', 'isAudio', 'media', 'Media') === true || rawState === 'audio';
+
+  // The wire says "composing" and uses a media flag for audio, while the neutral vocabulary has a
+  // distinct `recording` state — so the flag decides the word rather than a separate token.
+  const state = rawState === 'paused' ? 'paused' : isAudio ? 'recording' : 'composing';
+  adapter.emitPresence(chatId, state, pickString(data, 'Sender', 'sender') ?? chatId);
 }
 
 function handleGroup(adapter: EvolutionGoAdapter, data: Json): void {
@@ -192,6 +228,12 @@ export function dispatchRemoteEvent(adapter: EvolutionGoAdapter, event: string, 
       });
       return true;
 
+    case 'HistorySync':
+      // The only source of pre-connection history for this engine. Routed to the history-specific
+      // callback rather than the live one, because these messages predate the session.
+      adapter.emitHistory(mapHistorySync(asRecord(pick(payload, 'data', 'Data')) ?? payload));
+      return true;
+
     case 'QRTimeout':
       // The displayed code expired without being scanned. NOT a failure: the engine has been
       // re-issuing codes all along and only gives up after a couple of minutes (at which point it
@@ -217,6 +259,18 @@ export function dispatchRemoteEvent(adapter: EvolutionGoAdapter, event: string, 
     case 'SendMessage':
     case 'SEND_MESSAGE':
       adapter.emitInbound(data);
+      return true;
+
+    case 'Receipt':
+    case 'READ_RECEIPT':
+      // Delivery/read transitions. Without these an outgoing message never advances past "sent",
+      // because nothing else in this engine's surface reports them.
+      return handleReceiptEvent(adapter, data);
+
+    case 'ChatPresence':
+      // The other party typing or recording. The service reports it per chat, and it is what makes
+      // a chat view show "digitando…" for the person on the other side.
+      handleChatPresence(adapter, data);
       return true;
 
     case 'Group':

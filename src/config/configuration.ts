@@ -276,7 +276,15 @@ export default () => ({
       mediaTtlSeconds: parseInt(process.env.EVOLUTION_GO_MEDIA_TTL_SECONDS || '300', 10),
       // Event names subscribed on connect. Overridable because the engine's vocabulary has drifted
       // across releases; the default is the documented set.
-      subscribe: (process.env.EVOLUTION_GO_SUBSCRIBE || 'MESSAGE,SEND_MESSAGE,CONNECTION,QRCODE,CALL,GROUP,CONTACT')
+      // HISTORY_SYNC is not optional in practice: the engine only pushes the pre-connection history
+      // of a freshly linked device when this token is subscribed, and it pushes it ONCE. Missing it
+      // leaves every chat that had activity before the session connected invisible to the chat list
+      // for good — there is no second chance to receive it. READ_RECEIPT carries the delivery/read
+      // transitions, without which an outgoing message never advances past "sent".
+      subscribe: (
+        process.env.EVOLUTION_GO_SUBSCRIBE ||
+        'MESSAGE,SEND_MESSAGE,READ_RECEIPT,CONNECTION,QRCODE,CALL,GROUP,CONTACT,HISTORY_SYNC,CHAT_PRESENCE'
+      )
         .split(',')
         .map(entry => entry.trim())
         .filter(Boolean),

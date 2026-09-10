@@ -1713,6 +1713,23 @@ export class EvolutionGoAdapter implements IWhatsAppEngine {
     this.resolveReadyWaiters(false);
   }
 
+  /**
+   * Pre-connection history, handed to the dispatch-free persistence path.
+   *
+   * `onHistoryMessages` is deliberately separate from `onMessage`: these messages predate the live
+   * session, so consumers store them for the chat view and must NOT dispatch them — a backfilled
+   * message replayed through the normal path would fire webhooks and hooks for something that
+   * happened last week.
+   */
+  emitHistory(batch: { messages: IncomingMessage[]; progress?: number }): void {
+    if (batch.messages.length === 0) return;
+    this.logger.log(
+      `History sync delivered ${batch.messages.length} message(s)${batch.progress === undefined ? '' : ` (progress ${batch.progress}%)`}`,
+      { action: 'history_sync_received' },
+    );
+    this.callbacks.onHistoryMessages?.(batch.messages);
+  }
+
   /** Delivery receipts, surfaced so `message.ack` keeps working on this engine. */
   emitAck(messageId: string, status: DeliveryStatus): void {
     this.callbacks.onMessageAck?.(messageId, status);
